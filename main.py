@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import zipfile, os, xml.etree.ElementTree as ET, httpx, re
 from PIL import Image
 
@@ -20,6 +21,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 API_URL = "https://api.cloudrf.com/area"
 API_KEY = "35113-e181126d4af70994359d767890b3a4f2604eb0ef"
 
+@app.get("/icone-torre")
+def icone_torre():
+    return FileResponse("static/imagens/cloudrf.png", media_type="image/png")
 
 def parse_kmz(caminho_kmz):
     antena = None
@@ -37,22 +41,21 @@ def parse_kmz(caminho_kmz):
 
                 for placemark in root.findall(".//kml:Placemark", ns):
                     nome = placemark.find("kml:name", ns)
-
                     ponto = placemark.find(".//kml:Point/kml:coordinates", ns)
                     if nome is not None and ponto is not None:
                         nome_texto = nome.text.lower()
                         coords = ponto.text.strip().split(",")
                         lon, lat = float(coords[0]), float(coords[1])
 
-                        if any(p in nome_texto for p in ["antena", "torre", "barracão", "galpão", "silo", "repetidora"]):
+                        if any(p in nome_texto for p in ["antena", "torre", "barrac\u00e3o", "galp\u00e3o", "silo", "repetidora"]):
                             match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
                             altura = int(match.group(1)) if match else 15
                             antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
-                        elif "pivô" in nome_texto:
+                        elif "piv\u00f4" in nome_texto:
                             pivos.append({"nome": nome.text, "lat": lat, "lon": lon})
 
                     linha = placemark.find(".//kml:LineString/kml:coordinates", ns)
-                    if nome is not None and linha is not None and "medida do círculo" in nome.text.lower():
+                    if nome is not None and linha is not None and "medida do c\u00edrculo" in nome.text.lower():
                         coords_texto = linha.text.strip().split()
                         coords = []
                         for c in coords_texto:
@@ -62,13 +65,11 @@ def parse_kmz(caminho_kmz):
 
     return antena, pivos, ciclos
 
-
 def detectar_pivos_fora(bounds, pivos):
     try:
         img = Image.open("static/imagens/sinal.png").convert("RGBA")
         largura, altura = img.size
 
-        # Corrigir limites se estiverem invertidos
         sul, oeste, norte, leste = bounds[0], bounds[1], bounds[2], bounds[3]
         if sul > norte:
             sul, norte = norte, sul
@@ -76,21 +77,13 @@ def detectar_pivos_fora(bounds, pivos):
             oeste, leste = leste, oeste
 
         resultado = []
-
         for pivo in pivos:
-            # Converter coordenada geográfica para pixel
             x = int((pivo["lon"] - oeste) / (leste - oeste) * largura)
             y = int((norte - pivo["lat"]) / (norte - sul) * altura)
-
-            # Debug: mostrar o que está sendo lido
-            print(f"[DEBUG] Pivô {pivo['nome']} - lat: {pivo['lat']}, lon: {pivo['lon']} → x: {x}, y: {y}")
-
-            # Verificar somente o pixel central
             if 0 <= x < largura and 0 <= y < altura:
                 r, g, b, a = img.getpixel((x, y))
                 dentro_cobertura = a > 0
             else:
-                print(f"[ALERTA] Pivô {pivo['nome']} caiu fora da imagem (x: {x}, y: {y})")
                 dentro_cobertura = False
 
             pivo["fora"] = not dentro_cobertura
@@ -99,25 +92,20 @@ def detectar_pivos_fora(bounds, pivos):
         return resultado
 
     except Exception as e:
-        print("Erro na análise de imagem:", e)
+        print("Erro na an\u00e1lise de imagem:", e)
         return pivos
-
 
 @app.post("/processar_kmz")
 async def processar_kmz(file: UploadFile = File(...)):
     conteudo = await file.read()
     os.makedirs("arquivos", exist_ok=True)
-
     caminho_kmz = "arquivos/entrada.kmz"
     with open(caminho_kmz, "wb") as f:
         f.write(conteudo)
-
     antena, pivos, ciclos = parse_kmz(caminho_kmz)
     if not antena:
-        return {"erro": "Antena não encontrada no KMZ"}
-
+        return {"erro": "Antena n\u00e3o encontrada no KMZ"}
     return {"antena": antena, "pivos": pivos, "ciclos": ciclos}
-
 
 @app.post("/simular_sinal")
 async def simular_sinal(antena: dict):
@@ -159,12 +147,11 @@ async def simular_sinal(antena: dict):
     }
 
     headers = {"key": API_KEY, "Content-Type": "application/json"}
-
     async with httpx.AsyncClient() as client:
         resposta = await client.post(API_URL, headers=headers, json=payload)
 
     if resposta.status_code != 200:
-        return {"erro": "Erro na requisição", "detalhes": resposta.text}
+        return {"erro": "Erro na requisi\u00e7\u00e3o", "detalhes": resposta.text}
 
     data = resposta.json()
     imagem_url = data.get("PNG_WGS84")
@@ -181,6 +168,6 @@ async def simular_sinal(antena: dict):
     return {
         "imagem_salva": imagem_url,
         "bounds": bounds,
-        "status": "Simulação concluída",
+        "status": "Simula\u00e7\u00e3o conclu\u00edda",
         "pivos": pivos_com_status
     }
