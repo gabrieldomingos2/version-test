@@ -1,3 +1,4 @@
+<!-- index.html atualizado com Modo Manual -->
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -8,11 +9,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    html, body, #map {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-    }
+    html, body, #map { height: 100%; margin: 0; padding: 0; }
     .glass-button {
       backdrop-filter: blur(10px);
       background: rgba(255, 255, 255, 0.1);
@@ -25,26 +22,14 @@
       text-shadow: 0 1px 2px rgba(0,0,0,0.4);
       transition: all 0.3s ease;
     }
-    .glass-button:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.4);
-    }
-    #map {
-      z-index: 0;
-    }
-    #mensagem {
-      transition: opacity 0.5s ease-in-out;
-      opacity: 1;
-    }
-    #mensagem.hidden {
-      opacity: 0;
-    }
-    .top-controls {
-      z-index: 999;
-    }
+    .glass-button:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.4); }
+    #mensagem { transition: opacity 0.5s ease-in-out; opacity: 1; }
+    #mensagem.hidden { opacity: 0; }
+    .top-controls { z-index: 999; }
   </style>
 </head>
 <body class="bg-gray-900 text-white overflow-hidden">
+  <div id="map"></div>
 
   <div class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 px-6 py-2 rounded-xl shadow-xl top-controls">
     <h1 class="text-2xl font-bold text-green-400 text-center">📡 Simulador de Cobertura de Sinal</h1>
@@ -56,7 +41,18 @@
       <button type="submit" class="glass-button bg-green-700 hover:bg-green-800">📁 Carregar KMZ</button>
     </form>
     <button id="simular-btn" class="glass-button bg-blue-600 hover:bg-blue-700 hidden">📶 Rodar Estudo de Sinal</button>
+    <button id="ativar-manual" class="glass-button bg-yellow-700 hover:bg-yellow-800">🧠 Modo Expert</button>
     <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm">🔄 Resetar</button>
+  </div>
+
+  <div id="config-manual" class="absolute top-40 left-4 bg-black bg-opacity-60 p-4 rounded-xl hidden z-50">
+    <label class="block text-sm mb-1">📏 Altura da Antena (m)</label>
+    <input id="altura-antena" type="number" min="1" max="50" value="10" class="glass-button w-full mb-2">
+
+    <label class="block text-sm mb-1">📥 Altura do Receiver (m)</label>
+    <input id="altura-receiver" type="number" min="1" max="10" value="3" class="glass-button w-full mb-2">
+
+    <button id="rodar-manual" class="glass-button bg-blue-700 hover:bg-blue-800 w-full">📡 Rodar Simulação</button>
   </div>
 
   <div id="mensagem" class="hidden absolute bottom-16 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg text-center font-semibold z-50"></div>
@@ -69,8 +65,6 @@
     <span class="mt-4 text-lg font-bold text-green-300">Processando...</span>
   </div>
 
-  <div id="map"></div>
-
   <div class="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-sm text-gray-400 opacity-60 z-50">
     powered by Irricontrol
   </div>
@@ -81,11 +75,56 @@
       maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
     }).addTo(map);
 
+    let modoManual = false;
     let antenaGlobal = null;
     let overlaySinal = null;
     let marcadorAntena = null;
-    let marcadoresPivos = [];
-    let circulosPivos = [];
+
+    document.getElementById("ativar-manual").addEventListener("click", () => {
+      modoManual = true;
+      document.getElementById("config-manual").classList.remove("hidden");
+      mostrarMensagem("Modo Expert ativado. Clique no mapa para posicionar a torre.");
+    });
+
+    map.on("click", function(e) {
+      if (!modoManual) return;
+      const { lat, lng } = e.latlng;
+      antenaGlobal = {
+        lat: lat,
+        lon: lng,
+        altura: Number(document.getElementById("altura-antena").value || 10),
+        nome: "Repetidora Manual"
+      };
+      if (marcadorAntena) map.removeLayer(marcadorAntena);
+      marcadorAntena = L.marker([lat, lng]).addTo(map).bindPopup("📍 Torre Manual").openPopup();
+    });
+
+    document.getElementById("rodar-manual").addEventListener("click", async () => {
+      if (!antenaGlobal) return mostrarMensagem("Clique no mapa para posicionar a torre", "erro");
+      mostrarLoader(true);
+
+      antenaGlobal.altura = Number(document.getElementById("altura-antena").value || 10);
+      const receiverAltura = Number(document.getElementById("altura-receiver").value || 3);
+
+      const res = await fetch("https://projeto-irricontrol.onrender.com/simular_sinal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...antenaGlobal, receiver: { alt: receiverAltura } })
+      });
+      const data = await res.json();
+      mostrarLoader(false);
+
+      if (data.imagem_salva && data.bounds) {
+        const [south, west, north, east] = data.bounds;
+        const bounds = [[south, west], [north, east]];
+        if (overlaySinal) map.removeLayer(overlaySinal);
+        overlaySinal = L.imageOverlay(data.imagem_salva, bounds).addTo(map);
+        map.fitBounds(bounds);
+        mostrarMensagem("📡 Estudo de sinal concluído com sucesso.");
+      } else {
+        mostrarMensagem("❌ Falha na simulação.", "erro");
+      }
+    });
 
     const mostrarMensagem = (texto, tipo = 'sucesso') => {
       const msg = document.getElementById('mensagem');
@@ -98,103 +137,6 @@
     const mostrarLoader = (ativo) => {
       document.getElementById('loader').classList.toggle('hidden', !ativo);
     };
-
-    document.getElementById('formulario').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      mostrarLoader(true);
-
-      const fileInput = document.getElementById('arquivo');
-      const formData = new FormData();
-      formData.append("file", fileInput.files[0]);
-
-      const res = await fetch("https://projeto-irricontrol.onrender.com/processar_kmz", {
-        method: "POST",
-        body: formData
-      });
-      const data = await res.json();
-      mostrarLoader(false);
-
-      if (data.erro) return mostrarMensagem(data.erro, "erro");
-
-      antenaGlobal = data.antena;
-
-      if (marcadorAntena) map.removeLayer(marcadorAntena);
-      marcadoresPivos.forEach(m => map.removeLayer(m));
-      circulosPivos.forEach(c => map.removeLayer(c));
-      marcadoresPivos = [];
-      circulosPivos = [];
-
-      const antenaIcon = L.icon({
-        iconUrl: "https://cdn-icons-png.flaticon.com/512/535/535239.png",
-        iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
-      });
-
-      marcadorAntena = L.marker([antenaGlobal.lat, antenaGlobal.lon], { icon: antenaIcon })
-        .addTo(map).bindPopup(`📡 ${antenaGlobal.nome}`).openPopup();
-
-      marcadoresPivos = data.pivos.map(pivo =>
-        L.circleMarker([pivo.lat, pivo.lon], {
-          radius: 6, color: 'green', fillColor: '#0f0', fillOpacity: 0.6
-        }).addTo(map).bindPopup(`🌱 ${pivo.nome}`)
-      );
-
-      circulosPivos = data.ciclos.map(circulo =>
-        L.polygon(circulo.coordenadas, { color: 'red', weight: 1.5, fillOpacity: 0 }).addTo(map)
-      );
-
-      map.fitBounds([[antenaGlobal.lat, antenaGlobal.lon], ...data.pivos.map(p => [p.lat, p.lon])]);
-
-      mostrarMensagem("✅ KMZ carregado.");
-      document.getElementById("simular-btn").classList.remove("hidden");
-    });
-
-    document.getElementById("simular-btn").addEventListener("click", async () => {
-      if (!antenaGlobal) return;
-      mostrarLoader(true);
-
-      const res = await fetch("https://projeto-irricontrol.onrender.com/simular_sinal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(antenaGlobal)
-      });
-      const data = await res.json();
-      mostrarLoader(false);
-
-      if (data.imagem_salva && data.bounds) {
-        const [south, west, north, east] = data.bounds;
-        const bounds = [[south, west], [north, east]];
-
-        if (overlaySinal) map.removeLayer(overlaySinal);
-        overlaySinal = L.imageOverlay(data.imagem_salva, bounds).addTo(map);
-        map.fitBounds(bounds);
-
-        marcadoresPivos.forEach(m => map.removeLayer(m));
-        marcadoresPivos = data.pivos.map(pivo => {
-          const cor = pivo.fora ? 'red' : 'green';
-          return L.circleMarker([pivo.lat, pivo.lon], {
-            radius: 6, color: cor, fillColor: cor, fillOpacity: 0.6
-          }).addTo(map).bindPopup(`${pivo.fora ? '❌' : '✅'} ${pivo.nome}`);
-        });
-
-        mostrarMensagem("📡 Estudo de sinal concluído com sucesso.");
-      } else {
-        mostrarMensagem("❌ Falha na simulação.", "erro");
-      }
-    });
-
-    document.getElementById("resetar-btn").addEventListener("click", () => {
-      if (marcadorAntena) map.removeLayer(marcadorAntena);
-      marcadoresPivos.forEach(m => map.removeLayer(m));
-      circulosPivos.forEach(c => map.removeLayer(c));
-      if (overlaySinal) map.removeLayer(overlaySinal);
-      marcadorAntena = null;
-      antenaGlobal = null;
-      marcadoresPivos = [];
-      circulosPivos = [];
-      overlaySinal = null;
-      map.setView([-15, -55], 5);
-      document.getElementById("simular-btn").classList.add("hidden");
-    });
   </script>
 </body>
 </html>
