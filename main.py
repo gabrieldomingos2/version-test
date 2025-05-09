@@ -13,11 +13,11 @@ app = FastAPI()
 # CORS liberado para o site do Netlify
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://projeto-irricontrol.netlify.app"],  # sem barra no final
+    allow_origins=["https://projeto-irricontrol.netlify.app"],  # sem barra
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],  # <- garante acesso a recursos estáticos também
+    expose_headers=["*"],
 )
 
 # Servir arquivos estáticos
@@ -46,7 +46,7 @@ def extrair_antena_do_kmz(caminho_kmz):
                             lon, lat = float(coords[0]), float(coords[1])
                             match = re.search(r"(\d+)\s*m", nome_texto)
                             altura = int(match.group(1)) if match else 15
-                            return {"lat": lat, "lon": lon, "altura": altura}
+                            return {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
     return None
 
 def montar_payload(antena):
@@ -127,7 +127,7 @@ async def testar_envio(file: UploadFile = File(...)):
     imagem_base64 = data.get("image", "")
     imagem_url = data.get("PNG_WGS84", "")
     kmz_data = data.get("kmz")
-    bounds = data.get("bounds")  # <-- PEGANDO OS LIMITES
+    bounds = data.get("bounds")
 
     caminho_imagem = "static/imagens/sinal.png"
     if imagem_base64:
@@ -174,5 +174,6 @@ async def testar_envio(file: UploadFile = File(...)):
         "kmz_salvo": f"{API_BASE_URL}/static/imagens/sinal.kmz",
         "imagem_existe": os.path.exists(caminho_imagem),
         "kmz_existe": os.path.exists(caminho_kmz_saida),
-        "bounds": bounds  # <-- RETORNO PRO FRONTEND FUNCIONAR
+        "bounds": bounds,
+        "antena": antena  # 👈 incluído no retorno
     }
