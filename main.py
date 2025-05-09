@@ -1,5 +1,3 @@
-# main.py (com /processar_kmz, /simular_sinal e detecção de pivôs fora da cobertura)
-
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -7,7 +5,6 @@ import zipfile
 import os
 import xml.etree.ElementTree as ET
 import httpx
-import base64
 import re
 from PIL import Image
 
@@ -26,12 +23,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 API_URL = "https://api.cloudrf.com/area"
 API_KEY = "35113-e181126d4af70994359d767890b3a4f2604eb0ef"
-API_BASE_URL = "https://projeto-irricontrol.onrender.com"
 
 
 def parse_kmz(caminho_kmz):
     antena = None
     pivos = []
+    ciclos = []
 
     with zipfile.ZipFile(caminho_kmz, 'r') as kmz:
         for nome_arquivo in kmz.namelist():
@@ -44,8 +41,9 @@ def parse_kmz(caminho_kmz):
 
                 for placemark in root.findall(".//kml:Placemark", ns):
                     nome = placemark.find("kml:name", ns)
-                    ponto = placemark.find(".//kml:Point/kml:coordinates", ns)
 
+                    # Antena e pivôs
+                    ponto = placemark.find(".//kml:Point/kml:coordinates", ns)
                     if nome is not None and ponto is not None:
                         nome_texto = nome.text.lower()
                         coords = ponto.text.strip().split(",")
@@ -55,10 +53,20 @@ def parse_kmz(caminho_kmz):
                             match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
                             altura = int(match.group(1)) if match else 15
                             antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
-                        elif "pivô" in nome_texto or "pivô" in nome.text.lower():
+                        elif "pivô" in nome_texto:
                             pivos.append({"nome": nome.text, "lat": lat, "lon": lon})
 
-    return antena, pivos
+                    # Círculos desenhados
+                    linha = placemark.find(".//kml:LineString/kml:coordinates", ns)
+                    if nome is not None and linha is not None and "medida do círculo" in nome.text.lower():
+                        coords_texto = linha.text.strip().split()
+                        coords = []
+                        for c in coords_texto:
+                            lon, lat = map(float, c.split(",")[:2])
+                            coords.append([lat, lon])
+                        ciclos.append({"nome": nome.text, "coordenadas": coords})
+
+    return antena, pivos, ciclos
 
 
 def detectar_pivos_fora(bounds, pivos):
@@ -76,8 +84,9 @@ def detectar_pivos_fora(bounds, pivos):
             cor = img.getpixel((x, y))
             r, g, b = cor[:3]
 
-            # Verifica se está fora da cobertura (sem verde suficiente)
-            if g < 100:
+            if r < 50 and g < 50 and b < 50:
+                pivo["fora"] = True
+            elif g < 80 and r > 100:
                 pivo["fora"] = True
             else:
                 pivo["fora"] = False
@@ -98,11 +107,11 @@ async def processar_kmz(file: UploadFile = File(...)):
     with open(caminho_kmz, "wb") as f:
         f.write(conteudo)
 
-    antena, pivos = parse_kmz(caminho_kmz)
+    antena, pivos, ciclos = parse_kmz(caminho_kmz)
     if not antena:
         return {"erro": "Antena não encontrada no KMZ"}
 
-    return {"antena": antena, "pivos": pivos}
+    return {"antena": antena, "pivos": pivos, "ciclos": ciclos}
 
 
 @app.post("/simular_sinal")
@@ -126,11 +135,22 @@ async def simular_sinal(antena: dict):
             "lat": 0, "lon": 0, "alt": 3, "rxg": 3, "rxs": -90
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
-        "antenna": {"mode": "template", "txg": 3, "txl": 0, "ant": 1,
-                     "azi": 0, "tlt": 0, "hbw": 360, "vbw": 90, "fbr": 3, "pol": "v"},
-        "model": {"pm": 1, "pe": 2, "ked": 4, "rel": 95, "rcs": 1, "month": 4, "hour": 12, "sunspots_r12": 100},
-        "environment": {"elevation": 1, "landcover": 1, "buildings": 0, "obstacles": 0, "clt": "Minimal.clt"},
-        "output": {"units": "m", "col": "IRRICONTRO.dBm", "out": 2, "ber": 1, "mod": 7, "nf": -120, "res": 30, "rad": 10}
+        "antenna": {
+            "mode": "template", "txg": 3, "txl": 0, "ant": 1,
+            "azi": 0, "tlt": 0, "hbw": 360, "vbw": 90, "fbr": 3, "pol": "v"
+        },
+        "model": {
+            "pm": 1, "pe": 2, "ked": 4, "rel": 95,
+            "rcs": 1, "month": 4, "hour": 12, "sunspots_r12": 100
+        },
+        "environment": {
+            "elevation": 1, "landcover": 1, "buildings": 0,
+            "obstacles": 0, "clt": "Minimal.clt"
+        },
+        "output": {
+            "units": "m", "col": "IRRICONTRO.dBm", "out": 2,
+            "ber": 1, "mod": 7, "nf": -120, "res": 30, "rad": 10
+        }
     }
 
     headers = {"key": API_KEY, "Content-Type": "application/json"}
@@ -151,8 +171,8 @@ async def simular_sinal(antena: dict):
         with open("static/imagens/sinal.png", "wb") as f:
             f.write(r.content)
 
-    # Detectar pivôs fora (recarrega pivos da última entrada)
-    _, pivos = parse_kmz("arquivos/entrada.kmz")
+    # Detectar pivôs fora da cobertura
+    _, pivos, _ = parse_kmz("arquivos/entrada.kmz")
     pivos_com_status = detectar_pivos_fora(bounds, pivos)
 
     return {
