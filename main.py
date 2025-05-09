@@ -79,7 +79,7 @@ def detectar_pivos_fora(bounds, pivos):
 
         # Tons verdes válidos (baseados no CloudRF)
         tons_verdes = [
-            (18, 177, 104),  # -90
+            (56, 157, 101),  # -90
             (10, 215, 86),   # -80
             (0, 255, 51)     # -70
         ]
