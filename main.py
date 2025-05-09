@@ -68,6 +68,7 @@ def detectar_pivos_fora(bounds, pivos):
         img = Image.open("static/imagens/sinal.png").convert("RGBA")
         largura, altura = img.size
 
+        # Corrigir limites se estiverem invertidos
         sul, oeste, norte, leste = bounds[0], bounds[1], bounds[2], bounds[3]
         if sul > norte:
             sul, norte = norte, sul
@@ -77,13 +78,19 @@ def detectar_pivos_fora(bounds, pivos):
         resultado = []
 
         for pivo in pivos:
+            # Converter coordenada geográfica para pixel
             x = int((pivo["lon"] - oeste) / (leste - oeste) * largura)
             y = int((norte - pivo["lat"]) / (norte - sul) * altura)
 
+            # Debug: mostrar o que está sendo lido
+            print(f"[DEBUG] Pivô {pivo['nome']} - lat: {pivo['lat']}, lon: {pivo['lon']} → x: {x}, y: {y}")
+
+            # Verificar somente o pixel central
             if 0 <= x < largura and 0 <= y < altura:
                 r, g, b, a = img.getpixel((x, y))
                 dentro_cobertura = a > 0
             else:
+                print(f"[ALERTA] Pivô {pivo['nome']} caiu fora da imagem (x: {x}, y: {y})")
                 dentro_cobertura = False
 
             pivo["fora"] = not dentro_cobertura
@@ -114,8 +121,6 @@ async def processar_kmz(file: UploadFile = File(...)):
 
 @app.post("/simular_sinal")
 async def simular_sinal(antena: dict):
-    receiver_altura = antena.get("receiver", {}).get("alt", 3)
-
     payload = {
         "version": "CloudRF-API-v3.23",
         "site": "Brazil V6",
@@ -132,9 +137,7 @@ async def simular_sinal(antena: dict):
             "powerUnit": "W"
         },
         "receiver": {
-            "lat": 0, "lon": 0,
-            "alt": receiver_altura,
-            "rxg": 3, "rxs": -90
+            "lat": 0, "lon": 0, "alt": 3, "rxg": 3, "rxs": -90
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
         "antenna": {
