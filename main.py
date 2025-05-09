@@ -126,6 +126,7 @@ async def testar_envio(file: UploadFile = File(...)):
     imagem_base64 = data.get("image", "")
     imagem_url = data.get("PNG_WGS84", "")
     kmz_data = data.get("kmz")
+    bounds = data.get("bounds")  # <-- PEGANDO OS LIMITES
 
     caminho_imagem = "static/imagens/sinal.png"
     if imagem_base64:
@@ -171,5 +172,6 @@ async def testar_envio(file: UploadFile = File(...)):
         "imagem_salva": f"{API_BASE_URL}/static/imagens/sinal.png",
         "kmz_salvo": f"{API_BASE_URL}/static/imagens/sinal.kmz",
         "imagem_existe": os.path.exists(caminho_imagem),
-        "kmz_existe": os.path.exists(caminho_kmz_saida)
+        "kmz_existe": os.path.exists(caminho_kmz_saida),
+        "bounds": bounds  # <-- RETORNO PRO FRONTEND FUNCIONAR
     }
