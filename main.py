@@ -68,7 +68,6 @@ def detectar_pivos_fora(bounds, pivos):
         img = Image.open("static/imagens/sinal.png").convert("RGBA")
         largura, altura = img.size
 
-        # Corrigir limites se estiverem invertidos
         sul, oeste, norte, leste = bounds[0], bounds[1], bounds[2], bounds[3]
         if sul > norte:
             sul, norte = norte, sul
@@ -78,14 +77,11 @@ def detectar_pivos_fora(bounds, pivos):
         resultado = []
 
         for pivo in pivos:
-            # Converter coordenada geográfica para pixel
             x = int((pivo["lon"] - oeste) / (leste - oeste) * largura)
             y = int((norte - pivo["lat"]) / (norte - sul) * altura)
 
-            # Debug: mostrar o que está sendo lido
             print(f"[DEBUG] Pivô {pivo['nome']} - lat: {pivo['lat']}, lon: {pivo['lon']} → x: {x}, y: {y}")
 
-            # Verificar somente o pixel central
             if 0 <= x < largura and 0 <= y < altura:
                 r, g, b, a = img.getpixel((x, y))
                 dentro_cobertura = a > 0
