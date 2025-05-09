@@ -13,7 +13,7 @@ app = FastAPI()
 # CORS liberado para o site do Netlify
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://simulador-cloudrf-kmz.netlify.app"],
+    allow_origins=["https://projeto-irricontrol.netlify.app/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,7 +24,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 API_URL = "https://api.cloudrf.com/area"
 API_KEY = "35113-e181126d4af70994359d767890b3a4f2604eb0ef"
-API_BASE_URL = "https://simulador-cloudrf-kmz.onrender.com"
+API_BASE_URL = "https://projeto-irricontrol.onrender.com"
 
 def extrair_antena_do_kmz(caminho_kmz):
     with zipfile.ZipFile(caminho_kmz, 'r') as kmz:
