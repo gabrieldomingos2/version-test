@@ -1,11 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-import zipfile
-import os
-import xml.etree.ElementTree as ET
-import httpx
-import re
+import zipfile, os, xml.etree.ElementTree as ET, httpx, re
 from PIL import Image
 
 app = FastAPI()
@@ -42,7 +38,6 @@ def parse_kmz(caminho_kmz):
                 for placemark in root.findall(".//kml:Placemark", ns):
                     nome = placemark.find("kml:name", ns)
 
-                    # Antena e pivôs
                     ponto = placemark.find(".//kml:Point/kml:coordinates", ns)
                     if nome is not None and ponto is not None:
                         nome_texto = nome.text.lower()
@@ -56,7 +51,6 @@ def parse_kmz(caminho_kmz):
                         elif "pivô" in nome_texto:
                             pivos.append({"nome": nome.text, "lat": lat, "lon": lon})
 
-                    # Círculos desenhados
                     linha = placemark.find(".//kml:LineString/kml:coordinates", ns)
                     if nome is not None and linha is not None and "medida do círculo" in nome.text.lower():
                         coords_texto = linha.text.strip().split()
@@ -71,50 +65,33 @@ def parse_kmz(caminho_kmz):
 
 def detectar_pivos_fora(bounds, pivos):
     try:
-        img = Image.open("static/imagens/sinal.png")
+        img = Image.open("static/imagens/sinal.png").convert("RGB")
         largura, altura = img.size
-
         sul, oeste, norte, leste = bounds[0], bounds[1], bounds[2], bounds[3]
         resultado = []
 
-        # Tons verdes válidos (baseados no CloudRF)
-        tons_verdes = [
-            (18, 177, 104),  # -90
-            (10, 215, 86),   # -80
-            (0, 255, 51)     # -70
-        ]
-
-        def cor_aproximada(r, g, b):
-            for vr, vg, vb in tons_verdes:
-                if abs(r - vr) <= 25 and abs(g - vg) <= 25 and abs(b - vb) <= 25:
-                    return True
-            return False
+        def tem_sinal(r, g, b):
+            return not (r > 230 and g > 230 and b > 230)
 
         for pivo in pivos:
             x = int((pivo["lon"] - oeste) / (leste - oeste) * largura)
             y = int((norte - pivo["lat"]) / (norte - sul) * altura)
 
-            encontrou_verde = False
-
+            dentro_cobertura = False
             for dx in [-1, 0, 1]:
                 for dy in [-1, 0, 1]:
                     px = x + dx
                     py = y + dy
                     if 0 <= px < largura and 0 <= py < altura:
-                        r, g, b = img.getpixel((px, py))[:3]
-                        if cor_aproximada(r, g, b):
-                            encontrou_verde = True
+                        r, g, b = img.getpixel((px, py))
+                        if tem_sinal(r, g, b):
+                            dentro_cobertura = True
                             break
-                if encontrou_verde:
+                if dentro_cobertura:
                     break
 
-            pivo["fora"] = not encontrou_verde
+            pivo["fora"] = not dentro_cobertura
             resultado.append(pivo)
-
-        return resultado
-    except Exception as e:
-        print("Erro na análise de imagem:", e)
-        return pivos
 
         return resultado
     except Exception as e:
@@ -189,13 +166,11 @@ async def simular_sinal(antena: dict):
     imagem_url = data.get("PNG_WGS84")
     bounds = data.get("bounds")
 
-    # Salvar imagem localmente para análise
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
         with open("static/imagens/sinal.png", "wb") as f:
             f.write(r.content)
 
-    # Detectar pivôs fora da cobertura
     _, pivos, _ = parse_kmz("arquivos/entrada.kmz")
     pivos_com_status = detectar_pivos_fora(bounds, pivos)
 
