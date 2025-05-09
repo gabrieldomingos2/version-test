@@ -1,0 +1,135 @@
+<!-- index.html atualizado com suporte a círculos desenhados dos pivôs -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Simulador de Sinal - Irricontrol</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 80vh; width: 100%; }
+  </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-start p-4 space-y-4">
+  <h1 class="text-3xl font-bold text-center text-green-700">Simulador de Cobertura de Sinal</h1>
+
+  <div id="mensagem" class="hidden px-4 py-2 rounded text-white text-center font-semibold"></div>
+  <div id="loader" class="hidden flex flex-col items-center justify-center text-green-500 animate-pulse">
+    <svg class="animate-spin h-10 w-10" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+    </svg>
+    <span class="mt-2 text-sm font-semibold animate-pulse">Processando...</span>
+  </div>
+
+  <form id="formulario" class="flex items-center space-x-4">
+    <input type="file" id="arquivo" accept=".kmz" required class="file:py-2 file:px-4 file:border file:rounded-md file:text-sm file:bg-green-100 file:text-green-700 hover:file:bg-green-200" />
+    <button type="submit" class="bg-green-700 text-white px-4 py-2 rounded hover:bg-green-800">Carregar KMZ</button>
+  </form>
+
+  <button id="simular-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 hidden">📡 Rodar Estudo de Sinal</button>
+
+  <div id="map" class="rounded shadow-md"></div>
+  <a id="link-kmz" href="#" target="_blank" class="hidden text-blue-600 underline">📥 Baixar KMZ Gerado</a>
+
+  <script>
+    const map = L.map('map').setView([-15, -55], 5);
+    const satelite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+      maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+    }).addTo(map);
+
+    let antenaGlobal = null;
+    let overlaySinal = null;
+    let marcadorAntena = null;
+    let marcadoresPivos = [];
+    let circulosPivos = [];
+
+    const mostrarMensagem = (texto, tipo = 'sucesso') => {
+      const msg = document.getElementById('mensagem');
+      msg.textContent = texto;
+      msg.classList.remove('hidden', 'bg-red-600', 'bg-green-600');
+      msg.classList.add(tipo === 'sucesso' ? 'bg-green-600' : 'bg-red-600');
+    };
+
+    const mostrarLoader = (ativo) => {
+      document.getElementById('loader').classList.toggle('hidden', !ativo);
+    };
+
+    document.getElementById('formulario').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      mostrarLoader(true);
+
+      const fileInput = document.getElementById('arquivo');
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      const res = await fetch("https://projeto-irricontrol.onrender.com/processar_kmz", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      mostrarLoader(false);
+
+      if (data.erro) return mostrarMensagem(data.erro, "erro");
+
+      antenaGlobal = data.antena;
+
+      if (marcadorAntena) map.removeLayer(marcadorAntena);
+      const antenaIcon = L.icon({
+        iconUrl: "https://cdn-icons-png.flaticon.com/512/483/483947.png",
+        iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+      });
+      marcadorAntena = L.marker([antenaGlobal.lat, antenaGlobal.lon], { icon: antenaIcon })
+        .addTo(map).bindPopup(`📡 ${antenaGlobal.nome}`).openPopup();
+
+      marcadoresPivos.forEach(m => map.removeLayer(m));
+      marcadoresPivos = data.pivos.map(pivo =>
+        L.circleMarker([pivo.lat, pivo.lon], {
+          radius: 6, color: 'green', fillColor: '#0f0', fillOpacity: 0.6
+        }).addTo(map).bindPopup(`🌱 ${pivo.nome}`)
+      );
+
+      circulosPivos.forEach(c => map.removeLayer(c));
+      circulosPivos = data.circulos.map(circ =>
+        L.polygon(circ.coordenadas, {
+          color: 'red', weight: 2, fillOpacity: 0.05
+        }).addTo(map).bindPopup(`🔴 ${circ.nome}`)
+      );
+
+      map.fitBounds([ [antenaGlobal.lat, antenaGlobal.lon], ...data.pivos.map(p => [p.lat, p.lon]) ]);
+
+      mostrarMensagem("✅ KMZ carregado. Clique para simular o sinal.");
+      document.getElementById("simular-btn").classList.remove("hidden");
+    });
+
+    document.getElementById("simular-btn").addEventListener("click", async () => {
+      if (!antenaGlobal) return;
+      mostrarLoader(true);
+
+      const res = await fetch("https://projeto-irricontrol.onrender.com/simular_sinal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(antenaGlobal)
+      });
+      const data = await res.json();
+      mostrarLoader(false);
+
+      if (data.imagem_salva && data.bounds) {
+        const [south, west, north, east] = data.bounds;
+        const bounds = [[south, west], [north, east]];
+
+        if (overlaySinal) map.removeLayer(overlaySinal);
+        overlaySinal = L.imageOverlay(data.imagem_salva, bounds).addTo(map);
+        map.fitBounds(bounds);
+
+        mostrarMensagem("📡 Estudo de sinal concluído com sucesso.");
+      } else {
+        mostrarMensagem("❌ Falha na simulação.", "erro");
+      }
+    });
+  </script>
+</body>
+</html>

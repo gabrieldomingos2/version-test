@@ -1,5 +1,3 @@
-# main.py (com /processar_kmz e /simular_sinal)
-
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -27,10 +25,10 @@ API_URL = "https://api.cloudrf.com/area"
 API_KEY = "35113-e181126d4af70994359d767890b3a4f2604eb0ef"
 API_BASE_URL = "https://projeto-irricontrol.onrender.com"
 
-
 def parse_kmz(caminho_kmz):
     antena = None
     pivos = []
+    circulos = []
 
     with zipfile.ZipFile(caminho_kmz, 'r') as kmz:
         for nome_arquivo in kmz.namelist():
@@ -44,21 +42,35 @@ def parse_kmz(caminho_kmz):
                 for placemark in root.findall(".//kml:Placemark", ns):
                     nome = placemark.find("kml:name", ns)
                     ponto = placemark.find(".//kml:Point/kml:coordinates", ns)
+                    linha = placemark.find(".//kml:LineString/kml:coordinates", ns)
 
-                    if nome is not None and ponto is not None:
+                    if nome is not None:
                         nome_texto = nome.text.lower()
-                        coords = ponto.text.strip().split(",")
-                        lon, lat = float(coords[0]), float(coords[1])
 
-                        if any(p in nome_texto for p in ["antena", "torre", "barracão", "galpão", "silo", "repetidora"]):
-                            match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
-                            altura = int(match.group(1)) if match else 15
-                            antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
-                        elif "pivô" in nome_texto or "pivô" in nome.text.lower():
-                            pivos.append({"nome": nome.text, "lat": lat, "lon": lon})
+                        # Ponto da antena ou pivô
+                        if ponto is not None:
+                            coords = ponto.text.strip().split(",")
+                            lon, lat = float(coords[0]), float(coords[1])
 
-    return antena, pivos
+                            if any(p in nome_texto for p in ["antena", "torre", "barracão", "galpão", "silo", "repetidora"]):
+                                match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
+                                altura = int(match.group(1)) if match else 15
+                                antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
+                            elif "pivô" in nome_texto or "pivô" in nome.text.lower():
+                                pivos.append({"nome": nome.text, "lat": lat, "lon": lon})
 
+                        # Círculo desenhado
+                        elif linha is not None and "medida do círculo" in nome_texto:
+                            coords_text = linha.text.strip()
+                            coordenadas = []
+                            for linha_coord in coords_text.split():
+                                partes = linha_coord.split(",")
+                                if len(partes) >= 2:
+                                    lon, lat = float(partes[0]), float(partes[1])
+                                    coordenadas.append([lat, lon])
+                            circulos.append({"nome": nome.text, "coordenadas": coordenadas})
+
+    return antena, pivos, circulos
 
 @app.post("/processar_kmz")
 async def processar_kmz(file: UploadFile = File(...)):
@@ -69,12 +81,11 @@ async def processar_kmz(file: UploadFile = File(...)):
     with open(caminho_kmz, "wb") as f:
         f.write(conteudo)
 
-    antena, pivos = parse_kmz(caminho_kmz)
+    antena, pivos, circulos = parse_kmz(caminho_kmz)
     if not antena:
-        return {"erro": "Antena n\u00e3o encontrada no KMZ"}
+        return {"erro": "Antena não encontrada no KMZ"}
 
-    return {"antena": antena, "pivos": pivos}
-
+    return {"antena": antena, "pivos": pivos, "circulos": circulos}
 
 @app.post("/simular_sinal")
 async def simular_sinal(antena: dict):
@@ -110,7 +121,7 @@ async def simular_sinal(antena: dict):
         resposta = await client.post(API_URL, headers=headers, json=payload)
 
     if resposta.status_code != 200:
-        return {"erro": "Erro na requisic\u00e3o", "detalhes": resposta.text}
+        return {"erro": "Erro na requisição", "detalhes": resposta.text}
 
     data = resposta.json()
     imagem_url = data.get("PNG_WGS84")
@@ -118,5 +129,5 @@ async def simular_sinal(antena: dict):
     return {
         "imagem_salva": imagem_url,
         "bounds": bounds,
-        "status": "Simula\u00e7\u00e3o conclu\u00edda"
+        "status": "Simulação concluída"
     }
