@@ -50,11 +50,11 @@ def parse_kmz(caminho_kmz):
                         coords = ponto.text.strip().split(",")
                         lon, lat = float(coords[0]), float(coords[1])
 
-                        if any(p in nome_texto for p in ["antena", "torre", "barrac\u00e3o", "galp\u00e3o", "silo", "repetidora"]):
-                            match = re.search(r"(\\d+)\\s*m", nome_texto)
+                        if any(p in nome_texto for p in ["antena", "torre", "barracão", "galpão", "silo", "repetidora"]):
+                            match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
                             altura = int(match.group(1)) if match else 15
                             antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
-                        elif "piv\u00f4" in nome_texto or "pivô" in nome.text.lower():
+                        elif "pivô" in nome_texto or "pivô" in nome.text.lower():
                             pivos.append({"nome": nome.text, "lat": lat, "lon": lon})
 
     return antena, pivos
