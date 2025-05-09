@@ -67,25 +67,31 @@ def detectar_pivos_fora(bounds, pivos):
     try:
         img = Image.open("static/imagens/sinal.png").convert("RGBA")
         largura, altura = img.size
+
+        # Corrigir limites se estiverem invertidos
         sul, oeste, norte, leste = bounds[0], bounds[1], bounds[2], bounds[3]
+        if sul > norte:
+            sul, norte = norte, sul
+        if oeste > leste:
+            oeste, leste = leste, oeste
+
         resultado = []
 
         for pivo in pivos:
+            # Converter coordenada geográfica para pixel
             x = int((pivo["lon"] - oeste) / (leste - oeste) * largura)
             y = int((norte - pivo["lat"]) / (norte - sul) * altura)
 
-            dentro_cobertura = False
-            for dx in [-1, 0, 1]:
-                for dy in [-1, 0, 1]:
-                    px = x + dx
-                    py = y + dy
-                    if 0 <= px < largura and 0 <= py < altura:
-                        r, g, b, a = img.getpixel((px, py))
-                        if a > 0:  # Se o pixel não é totalmente transparente
-                            dentro_cobertura = True
-                            break
-                if dentro_cobertura:
-                    break
+            # Debug: mostrar o que está sendo lido
+            print(f"[DEBUG] Pivô {pivo['nome']} - lat: {pivo['lat']}, lon: {pivo['lon']} → x: {x}, y: {y}")
+
+            # Verificar somente o pixel central
+            if 0 <= x < largura and 0 <= y < altura:
+                r, g, b, a = img.getpixel((x, y))
+                dentro_cobertura = a > 0
+            else:
+                print(f"[ALERTA] Pivô {pivo['nome']} caiu fora da imagem (x: {x}, y: {y})")
+                dentro_cobertura = False
 
             pivo["fora"] = not dentro_cobertura
             resultado.append(pivo)
