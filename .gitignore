@@ -22,7 +22,6 @@ build/
 *.sublime-workspace
 
 # 📸 Imagens e arquivos gerados
-static/imagens/*
 !static/imagens/.gitkeep  # mantém a pasta viva no Git
 
 # 📦 Arquivos KMZ/KML de testes
