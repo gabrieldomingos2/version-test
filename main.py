@@ -1,3 +1,5 @@
+# main.py (com /processar_kmz, /simular_sinal e detecção de pivôs fora da cobertura)
+
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -7,6 +9,7 @@ import xml.etree.ElementTree as ET
 import httpx
 import base64
 import re
+from PIL import Image
 
 app = FastAPI()
 
@@ -25,10 +28,10 @@ API_URL = "https://api.cloudrf.com/area"
 API_KEY = "35113-e181126d4af70994359d767890b3a4f2604eb0ef"
 API_BASE_URL = "https://projeto-irricontrol.onrender.com"
 
+
 def parse_kmz(caminho_kmz):
     antena = None
     pivos = []
-    circulos = []
 
     with zipfile.ZipFile(caminho_kmz, 'r') as kmz:
         for nome_arquivo in kmz.namelist():
@@ -42,35 +45,49 @@ def parse_kmz(caminho_kmz):
                 for placemark in root.findall(".//kml:Placemark", ns):
                     nome = placemark.find("kml:name", ns)
                     ponto = placemark.find(".//kml:Point/kml:coordinates", ns)
-                    linha = placemark.find(".//kml:LineString/kml:coordinates", ns)
 
-                    if nome is not None:
+                    if nome is not None and ponto is not None:
                         nome_texto = nome.text.lower()
+                        coords = ponto.text.strip().split(",")
+                        lon, lat = float(coords[0]), float(coords[1])
 
-                        # Ponto da antena ou pivô
-                        if ponto is not None:
-                            coords = ponto.text.strip().split(",")
-                            lon, lat = float(coords[0]), float(coords[1])
+                        if any(p in nome_texto for p in ["antena", "torre", "barracão", "galpão", "silo", "repetidora"]):
+                            match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
+                            altura = int(match.group(1)) if match else 15
+                            antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
+                        elif "pivô" in nome_texto or "pivô" in nome.text.lower():
+                            pivos.append({"nome": nome.text, "lat": lat, "lon": lon})
 
-                            if any(p in nome_texto for p in ["antena", "torre", "barracão", "galpão", "silo", "repetidora"]):
-                                match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
-                                altura = int(match.group(1)) if match else 15
-                                antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
-                            elif "pivô" in nome_texto or "pivô" in nome.text.lower():
-                                pivos.append({"nome": nome.text, "lat": lat, "lon": lon})
+    return antena, pivos
 
-                        # Círculo desenhado
-                        elif linha is not None and "medida do círculo" in nome_texto:
-                            coords_text = linha.text.strip()
-                            coordenadas = []
-                            for linha_coord in coords_text.split():
-                                partes = linha_coord.split(",")
-                                if len(partes) >= 2:
-                                    lon, lat = float(partes[0]), float(partes[1])
-                                    coordenadas.append([lat, lon])
-                            circulos.append({"nome": nome.text, "coordenadas": coordenadas})
 
-    return antena, pivos, circulos
+def detectar_pivos_fora(bounds, pivos):
+    try:
+        img = Image.open("static/imagens/sinal.png")
+        largura, altura = img.size
+
+        sul, oeste, norte, leste = bounds[0], bounds[1], bounds[2], bounds[3]
+        resultado = []
+
+        for pivo in pivos:
+            x = int((pivo["lon"] - oeste) / (leste - oeste) * largura)
+            y = int((norte - pivo["lat"]) / (norte - sul) * altura)
+
+            cor = img.getpixel((x, y))
+            r, g, b = cor[:3]
+
+            # Verifica se está fora da cobertura (sem verde suficiente)
+            if g < 100:
+                pivo["fora"] = True
+            else:
+                pivo["fora"] = False
+
+            resultado.append(pivo)
+        return resultado
+    except Exception as e:
+        print("Erro na análise de imagem:", e)
+        return pivos
+
 
 @app.post("/processar_kmz")
 async def processar_kmz(file: UploadFile = File(...)):
@@ -81,11 +98,12 @@ async def processar_kmz(file: UploadFile = File(...)):
     with open(caminho_kmz, "wb") as f:
         f.write(conteudo)
 
-    antena, pivos, circulos = parse_kmz(caminho_kmz)
+    antena, pivos = parse_kmz(caminho_kmz)
     if not antena:
         return {"erro": "Antena não encontrada no KMZ"}
 
-    return {"antena": antena, "pivos": pivos, "circulos": circulos}
+    return {"antena": antena, "pivos": pivos}
+
 
 @app.post("/simular_sinal")
 async def simular_sinal(antena: dict):
@@ -126,8 +144,20 @@ async def simular_sinal(antena: dict):
     data = resposta.json()
     imagem_url = data.get("PNG_WGS84")
     bounds = data.get("bounds")
+
+    # Salvar imagem localmente para análise
+    async with httpx.AsyncClient() as client:
+        r = await client.get(imagem_url)
+        with open("static/imagens/sinal.png", "wb") as f:
+            f.write(r.content)
+
+    # Detectar pivôs fora (recarrega pivos da última entrada)
+    _, pivos = parse_kmz("arquivos/entrada.kmz")
+    pivos_com_status = detectar_pivos_fora(bounds, pivos)
+
     return {
         "imagem_salva": imagem_url,
         "bounds": bounds,
-        "status": "Simulação concluída"
+        "status": "Simulação concluída",
+        "pivos": pivos_com_status
     }
