@@ -13,7 +13,7 @@ app = FastAPI()
 # CORS liberado para o site do Netlify
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://projeto-irricontrol.netlify.app/"],
+    allow_origins=["https://projeto-irricontrol.netlify.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
