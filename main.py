@@ -65,13 +65,10 @@ def parse_kmz(caminho_kmz):
 
 def detectar_pivos_fora(bounds, pivos):
     try:
-        img = Image.open("static/imagens/sinal.png").convert("RGB")
+        img = Image.open("static/imagens/sinal.png").convert("RGBA")
         largura, altura = img.size
         sul, oeste, norte, leste = bounds[0], bounds[1], bounds[2], bounds[3]
         resultado = []
-
-        def tem_sinal(r, g, b):
-            return not (r > 230 and g > 230 and b > 230)
 
         for pivo in pivos:
             x = int((pivo["lon"] - oeste) / (leste - oeste) * largura)
@@ -83,8 +80,8 @@ def detectar_pivos_fora(bounds, pivos):
                     px = x + dx
                     py = y + dy
                     if 0 <= px < largura and 0 <= py < altura:
-                        r, g, b = img.getpixel((px, py))
-                        if tem_sinal(r, g, b):
+                        r, g, b, a = img.getpixel((px, py))
+                        if a > 0:  # Se o pixel não é totalmente transparente
                             dentro_cobertura = True
                             break
                 if dentro_cobertura:
@@ -94,6 +91,7 @@ def detectar_pivos_fora(bounds, pivos):
             resultado.append(pivo)
 
         return resultado
+
     except Exception as e:
         print("Erro na análise de imagem:", e)
         return pivos
