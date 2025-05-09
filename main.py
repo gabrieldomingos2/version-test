@@ -77,6 +77,19 @@ def detectar_pivos_fora(bounds, pivos):
         sul, oeste, norte, leste = bounds[0], bounds[1], bounds[2], bounds[3]
         resultado = []
 
+        # Tons verdes válidos (baseados no CloudRF)
+        tons_verdes = [
+            (18, 177, 104),  # -90
+            (10, 215, 86),   # -80
+            (0, 255, 51)     # -70
+        ]
+
+        def cor_aproximada(r, g, b):
+            for vr, vg, vb in tons_verdes:
+                if abs(r - vr) <= 25 and abs(g - vg) <= 25 and abs(b - vb) <= 25:
+                    return True
+            return False
+
         for pivo in pivos:
             x = int((pivo["lon"] - oeste) / (leste - oeste) * largura)
             y = int((norte - pivo["lat"]) / (norte - sul) * altura)
@@ -89,7 +102,7 @@ def detectar_pivos_fora(bounds, pivos):
                     py = y + dy
                     if 0 <= px < largura and 0 <= py < altura:
                         r, g, b = img.getpixel((px, py))[:3]
-                        if r < 80 and g > 180 and b < 80:
+                        if cor_aproximada(r, g, b):
                             encontrou_verde = True
                             break
                 if encontrou_verde:
@@ -97,6 +110,11 @@ def detectar_pivos_fora(bounds, pivos):
 
             pivo["fora"] = not encontrou_verde
             resultado.append(pivo)
+
+        return resultado
+    except Exception as e:
+        print("Erro na análise de imagem:", e)
+        return pivos
 
         return resultado
     except Exception as e:
