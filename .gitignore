@@ -1,16 +1,46 @@
-# Ignorar ambiente virtual
+# 🌱 Ambiente Python
 venv/
-
-# Ignorar arquivos gerados
 __pycache__/
 *.pyc
 *.pyo
-*.log
+*.pyd
 
-# Ignorar arquivos de editor
+# 📦 Dependências
+*.egg-info/
+dist/
+build/
+
+# 🧪 Arquivos temporários
+*.log
+*.tmp
+*.bak
+
+# 🧠 Configs locais e IDEs
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 
-# Ignore arquivos de sistema
-.DS_Store
-Thumbs.db
+# 📸 Imagens e arquivos gerados
+static/imagens/*
+!static/imagens/.gitkeep  # mantém a pasta viva no Git
+
+# 📦 Arquivos KMZ/KML de testes
+arquivos/
+*.kmz
+*.kml
+
+# 🕸️ HTML temporário de deploy (se houver)
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+frontend/.cache/
+
+# 🚫 Evita repositório dentro do repositório
+projeto-irricontrol/
+
+# 💥 Render logs ou arquivos de build
+render-build.log
+
+# ✅ Mantém esse próprio .gitignore
+!.gitignore
