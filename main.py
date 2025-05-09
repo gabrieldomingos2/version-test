@@ -81,17 +81,23 @@ def detectar_pivos_fora(bounds, pivos):
             x = int((pivo["lon"] - oeste) / (leste - oeste) * largura)
             y = int((norte - pivo["lat"]) / (norte - sul) * altura)
 
-            cor = img.getpixel((x, y))
-            r, g, b = cor[:3]
+            encontrou_verde = False
 
-            if r < 50 and g < 50 and b < 50:
-                pivo["fora"] = True
-            elif g < 80 and r > 100:
-                pivo["fora"] = True
-            else:
-                pivo["fora"] = False
+            for dx in [-1, 0, 1]:
+                for dy in [-1, 0, 1]:
+                    px = x + dx
+                    py = y + dy
+                    if 0 <= px < largura and 0 <= py < altura:
+                        r, g, b = img.getpixel((px, py))[:3]
+                        if r < 80 and g > 180 and b < 80:
+                            encontrou_verde = True
+                            break
+                if encontrou_verde:
+                    break
 
+            pivo["fora"] = not encontrou_verde
             resultado.append(pivo)
+
         return resultado
     except Exception as e:
         print("Erro na análise de imagem:", e)
