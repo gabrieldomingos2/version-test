@@ -65,9 +65,9 @@ def parse_kmz(caminho_kmz):
 
     return antena, pivos, ciclos
 
-def detectar_pivos_fora(bounds, pivos):
+def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png"):
     try:
-        img = Image.open("static/imagens/sinal.png").convert("RGBA")
+        img = Image.open(caminho_imagem).convert("RGBA")
         largura, altura = img.size
 
         sul, oeste, norte, leste = bounds[0], bounds[1], bounds[2], bounds[3]
@@ -224,19 +224,18 @@ async def simular_manual(params: dict):
     imagem_url = data.get("PNG_WGS84")
     bounds = data.get("bounds")
 
-    # Salvar a nova imagem do estudo de sinal da repetidora
+    # Salva a imagem do estudo da repetidora com nome diferente
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
-        with open("static/imagens/sinal.png", "wb") as f:
+        with open("static/imagens/sinal_manual.png", "wb") as f:
             f.write(r.content)
 
-    # Recarrega os pivôs do KMZ original
+    # Recarrega os pivôs do KMZ
     _, pivos, _ = parse_kmz("arquivos/entrada.kmz")
 
-    # Detecta quais estão fora da nova cobertura
-    pivos_com_status = detectar_pivos_fora(bounds, pivos)
+    # Detecta os pivôs fora da nova cobertura da repetidora
+    pivos_com_status = detectar_pivos_fora(bounds, pivos, "static/imagens/sinal_manual.png")
 
-    # Retorna tudo pro frontend com a nova imagem e os pivôs atualizados
     return {
         "imagem_salva": imagem_url,
         "bounds": bounds,
