@@ -172,7 +172,7 @@ async def simular_sinal(antena: dict):
         "pivos": pivos_com_status
     }
 
-@@app.post("/simular_manual")
+@app.post("/simular_manual")
 async def simular_manual(params: dict):
     payload = {
         "version": "CloudRF-API-v3.23",
