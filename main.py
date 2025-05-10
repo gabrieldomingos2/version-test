@@ -226,11 +226,31 @@ async def simular_manual(params: dict):
 
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
-        with open("static/imagens/sinal_manual.png", "wb") as f:
+        with open("static/imagens/sinal.png", "wb") as f:
             f.write(r.content)
 
+    # 🔍 Só queremos reavaliar pivôs que ainda estão "fora"
+    _, pivos, _ = parse_kmz("arquivos/entrada.kmz")
+    pivos_antigos = detectar_pivos_fora(bounds, pivos)
+
+    # Reavaliar apenas os que ainda estão fora
+    pivos_a_reavaliar = [p for p in pivos_antigos if p["fora"]]
+
+    # Roda detecção só nesses
+    pivos_reavaliados = detectar_pivos_fora(bounds, pivos_a_reavaliar)
+
+    # Junta os que já estavam ok + os que acabaram de ficar ok
+    pivos_finais = []
+    for p in pivos_antigos:
+        reavaliado = next((r for r in pivos_reavaliados if r["nome"] == p["nome"]), None)
+        if reavaliado:
+            pivos_finais.append(reavaliado)
+        else:
+            pivos_finais.append(p)
+
     return {
-    "imagem_salva": imagem_url,
-    "bounds": bounds,
-    "status": "Simulação manual concluída"
-}
+        "imagem_salva": imagem_url,
+        "bounds": bounds,
+        "status": "Simulação manual cumulativa concluída",
+        "pivos": pivos_finais
+    }
