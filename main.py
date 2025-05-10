@@ -229,8 +229,13 @@ async def simular_manual(params: dict):
         with open("static/imagens/sinal_manual.png", "wb") as f:
             f.write(r.content)
 
+    # 🔁 Reutiliza os pivôs do último KMZ enviado
+    _, pivos, _ = parse_kmz("arquivos/entrada.kmz")
+    pivos_com_status = detectar_pivos_fora(bounds, pivos)
+
     return {
         "imagem_salva": imagem_url,
         "bounds": bounds,
-        "status": "Simulação manual concluída"
+        "status": "Simulação manual concluída",
+        "pivos": pivos_com_status
     }
