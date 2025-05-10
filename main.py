@@ -230,8 +230,7 @@ async def simular_manual(params: dict):
             f.write(r.content)
 
     return {
-        "imagem_salva": imagem_url,
-        "bounds": bounds,
-        "status": "Simulação manual concluída",
-        "pivos": pivos_com_status
-    }
+    "imagem_salva": imagem_url,
+    "bounds": bounds,
+    "status": "Simulação manual concluída"
+}
