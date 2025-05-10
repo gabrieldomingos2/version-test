@@ -172,7 +172,7 @@ async def simular_sinal(antena: dict):
         "pivos": pivos_com_status
     }
 
-@app.post("/simular_manual")
+@@app.post("/simular_manual")
 async def simular_manual(params: dict):
     payload = {
         "version": "CloudRF-API-v3.23",
@@ -224,33 +224,22 @@ async def simular_manual(params: dict):
     imagem_url = data.get("PNG_WGS84")
     bounds = data.get("bounds")
 
+    # Salvar a nova imagem do estudo de sinal da repetidora
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
         with open("static/imagens/sinal.png", "wb") as f:
             f.write(r.content)
 
-    # 🔍 Só queremos reavaliar pivôs que ainda estão "fora"
+    # Recarrega os pivôs do KMZ original
     _, pivos, _ = parse_kmz("arquivos/entrada.kmz")
-    pivos_antigos = detectar_pivos_fora(bounds, pivos)
 
-    # Reavaliar apenas os que ainda estão fora
-    pivos_a_reavaliar = [p for p in pivos_antigos if p["fora"]]
+    # Detecta quais estão fora da nova cobertura
+    pivos_com_status = detectar_pivos_fora(bounds, pivos)
 
-    # Roda detecção só nesses
-    pivos_reavaliados = detectar_pivos_fora(bounds, pivos_a_reavaliar)
-
-    # Junta os que já estavam ok + os que acabaram de ficar ok
-    pivos_finais = []
-    for p in pivos_antigos:
-        reavaliado = next((r for r in pivos_reavaliados if r["nome"] == p["nome"]), None)
-        if reavaliado:
-            pivos_finais.append(reavaliado)
-        else:
-            pivos_finais.append(p)
-
+    # Retorna tudo pro frontend com a nova imagem e os pivôs atualizados
     return {
         "imagem_salva": imagem_url,
         "bounds": bounds,
-        "status": "Simulação manual cumulativa concluída",
-        "pivos": pivos_finais
+        "status": "Simulação manual concluída",
+        "pivos": pivos_com_status
     }
