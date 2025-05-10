@@ -47,15 +47,15 @@ def parse_kmz(caminho_kmz):
                         coords = ponto.text.strip().split(",")
                         lon, lat = float(coords[0]), float(coords[1])
 
-                        if any(p in nome_texto for p in ["antena", "torre", "barrac\u00e3o", "galp\u00e3o", "silo", "repetidora"]):
+                        if any(p in nome_texto for p in ["antena", "torre", "barracão", "galpão", "silo", "repetidora"]):
                             match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
                             altura = int(match.group(1)) if match else 15
                             antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
-                        elif "piv\u00f4" in nome_texto:
+                        elif "pivô" in nome_texto:
                             pivos.append({"nome": nome.text, "lat": lat, "lon": lon})
 
                     linha = placemark.find(".//kml:LineString/kml:coordinates", ns)
-                    if nome is not None and linha is not None and "medida do c\u00edrculo" in nome.text.lower():
+                    if nome is not None and linha is not None and "medida do círculo" in nome.text.lower():
                         coords_texto = linha.text.strip().split()
                         coords = []
                         for c in coords_texto:
@@ -92,7 +92,7 @@ def detectar_pivos_fora(bounds, pivos):
         return resultado
 
     except Exception as e:
-        print("Erro na an\u00e1lise de imagem:", e)
+        print("Erro na análise de imagem:", e)
         return pivos
 
 @app.post("/processar_kmz")
@@ -104,7 +104,7 @@ async def processar_kmz(file: UploadFile = File(...)):
         f.write(conteudo)
     antena, pivos, ciclos = parse_kmz(caminho_kmz)
     if not antena:
-        return {"erro": "Antena n\u00e3o encontrada no KMZ"}
+        return {"erro": "Antena não encontrada no KMZ"}
     return {"antena": antena, "pivos": pivos, "ciclos": ciclos}
 
 @app.post("/simular_sinal")
@@ -151,7 +151,7 @@ async def simular_sinal(antena: dict):
         resposta = await client.post(API_URL, headers=headers, json=payload)
 
     if resposta.status_code != 200:
-        return {"erro": "Erro na requisi\u00e7\u00e3o", "detalhes": resposta.text}
+        return {"erro": "Erro na requisição", "detalhes": resposta.text}
 
     data = resposta.json()
     imagem_url = data.get("PNG_WGS84")
@@ -168,6 +168,69 @@ async def simular_sinal(antena: dict):
     return {
         "imagem_salva": imagem_url,
         "bounds": bounds,
-        "status": "Simula\u00e7\u00e3o conclu\u00edda",
+        "status": "Simulação concluída",
         "pivos": pivos_com_status
+    }
+
+@app.post("/simular_manual")
+async def simular_manual(params: dict):
+    payload = {
+        "version": "CloudRF-API-v3.23",
+        "site": "Manual Entry",
+        "network": "Modo Expert",
+        "engine": 2,
+        "coordinates": 1,
+        "transmitter": {
+            "lat": params["lat"],
+            "lon": params["lon"],
+            "alt": params.get("altura_antena", 15),
+            "frq": 915,
+            "txw": 0.3,
+            "bwi": 0.1,
+            "powerUnit": "W"
+        },
+        "receiver": {
+            "lat": 0, "lon": 0,
+            "alt": params.get("altura_receiver", 3),
+            "rxg": 3, "rxs": -90
+        },
+        "feeder": {"flt": 1, "fll": 0, "fcc": 0},
+        "antenna": {
+            "mode": "template", "txg": 3, "txl": 0, "ant": 1,
+            "azi": 0, "tlt": 0, "hbw": 360, "vbw": 90, "fbr": 3, "pol": "v"
+        },
+        "model": {
+            "pm": 1, "pe": 2, "ked": 4, "rel": 95,
+            "rcs": 1, "month": 4, "hour": 12, "sunspots_r12": 100
+        },
+        "environment": {
+            "elevation": 1, "landcover": 1, "buildings": 0,
+            "obstacles": 0, "clt": "Minimal.clt"
+        },
+        "output": {
+            "units": "m", "col": "IRRICONTRO.dBm", "out": 2,
+            "ber": 1, "mod": 7, "nf": -120, "res": 30, "rad": 10
+        }
+    }
+
+    headers = {"key": API_KEY, "Content-Type": "application/json"}
+    async with httpx.AsyncClient() as client:
+        resposta = await client.post(API_URL, headers=headers, json=payload)
+
+    if resposta.status_code != 200:
+        return {"erro": "Erro na requisição manual", "detalhes": resposta.text}
+
+    data = resposta.json()
+    imagem_url = data.get("PNG_WGS84")
+    bounds = data.get("bounds")
+
+    async with httpx.AsyncClient() as client:
+        r = await client.get(imagem_url)
+        with open("static/imagens/sinal_manual.png", "wb") as f:
+            f.write(r.content)
+
+    return {
+        "imagem_salva": imagem_url,
+        "bounds": bounds,
+        "status": "Simulação manual concluída"
     }

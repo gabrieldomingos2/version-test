@@ -29,9 +29,6 @@
       background: rgba(255, 255, 255, 0.2);
       border-color: rgba(255, 255, 255, 0.4);
     }
-    #map {
-      z-index: 0;
-    }
     #mensagem {
       transition: opacity 0.5s ease-in-out;
       opacity: 1;
@@ -65,6 +62,7 @@
       <button type="submit" class="glass-button bg-green-700 hover:bg-green-800">📁 Carregar KMZ</button>
     </form>
     <button id="simular-btn" class="glass-button bg-blue-600 hover:bg-blue-700 hidden">📶 Rodar Estudo de Sinal</button>
+    <button id="modo-expert" class="glass-button bg-purple-700 hover:bg-purple-800 text-sm">🧪 Modo Expert</button>
     <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm">🔄 Resetar</button>
   </div>
 
@@ -76,6 +74,23 @@
       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
     </svg>
     <span class="mt-4 text-lg font-bold text-green-300">Processando...</span>
+  </div>
+
+  <!-- MODAL MODO EXPERT -->
+  <div id="modal-expert" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[99999] hidden">
+    <div class="bg-gray-800 text-white p-6 rounded-xl w-96 shadow-lg border border-gray-600">
+      <h2 class="text-xl font-bold mb-4 text-purple-400">🧪 Modo Expert</h2>
+      <div class="flex flex-col gap-3">
+        <input type="number" id="input-lat" placeholder="Latitude" class="px-3 py-2 rounded bg-gray-900 border border-gray-600 focus:outline-none" />
+        <input type="number" id="input-lon" placeholder="Longitude" class="px-3 py-2 rounded bg-gray-900 border border-gray-600 focus:outline-none" />
+        <input type="number" id="input-altura" placeholder="Altura da Antena (m)" class="px-3 py-2 rounded bg-gray-900 border border-gray-600 focus:outline-none" />
+        <input type="number" id="input-receiver" placeholder="Altura do Receiver (m)" class="px-3 py-2 rounded bg-gray-900 border border-gray-600 focus:outline-none" value="3" />
+      </div>
+      <div class="flex justify-end gap-3 mt-4">
+        <button id="cancelar-expert" class="glass-button bg-red-600 hover:bg-red-700 text-sm">Cancelar</button>
+        <button id="confirmar-expert" class="glass-button bg-green-600 hover:bg-green-700 text-sm">Simular</button>
+      </div>
+    </div>
   </div>
 
   <div id="map"></div>
@@ -95,10 +110,6 @@
     let marcadoresPivos = [];
     let circulosPivos = [];
 
-    document.getElementById("toggle-painel").addEventListener("click", () => {
-      document.getElementById("painel-dados").classList.toggle("hidden");
-    });
-
     const mostrarMensagem = (texto, tipo = 'sucesso') => {
       const msg = document.getElementById('mensagem');
       msg.textContent = texto;
@@ -117,6 +128,10 @@
       document.getElementById("altura-antena-info").textContent = `Altura da antena: ${antena.altura} m`;
       document.getElementById("altura-receiver-info").textContent = `Altura receiver: ${receiverAltura} m`;
     }
+
+    document.getElementById("toggle-painel").addEventListener("click", () => {
+      document.getElementById("painel-dados").classList.toggle("hidden");
+    });
 
     document.getElementById('formulario').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -143,13 +158,8 @@
       marcadoresPivos = [];
       circulosPivos = [];
 
-      const antenaIcon = L.icon({
-        iconUrl: "https://projeto-irricontrol.onrender.com/icone-torre",
-        iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40]
-      });
-
-      marcadorAntena = L.marker([antenaGlobal.lat, antenaGlobal.lon], { icon: antenaIcon })
-        .addTo(map).bindPopup(`📡 ${antenaGlobal.nome}`).openPopup();
+      marcadorAntena = L.marker([antenaGlobal.lat, antenaGlobal.lon]).addTo(map)
+        .bindPopup(`📡 ${antenaGlobal.nome}`).openPopup();
 
       marcadoresPivos = data.pivos.map(pivo =>
         L.circleMarker([pivo.lat, pivo.lon], {
@@ -162,7 +172,6 @@
       );
 
       map.fitBounds([[antenaGlobal.lat, antenaGlobal.lon], ...data.pivos.map(p => [p.lat, p.lon])]);
-
       mostrarMensagem("✅ KMZ carregado.");
       document.getElementById("simular-btn").classList.remove("hidden");
     });
@@ -199,6 +208,49 @@
         mostrarMensagem("📡 Estudo de sinal concluído com sucesso.");
       } else {
         mostrarMensagem("❌ Falha na simulação.", "erro");
+      }
+    });
+
+    // MODO EXPERT - Modal
+    document.getElementById("modo-expert").addEventListener("click", () => {
+      document.getElementById("modal-expert").classList.remove("hidden");
+    });
+
+    document.getElementById("cancelar-expert").addEventListener("click", () => {
+      document.getElementById("modal-expert").classList.add("hidden");
+    });
+
+    document.getElementById("confirmar-expert").addEventListener("click", async () => {
+      const lat = parseFloat(document.getElementById("input-lat").value);
+      const lon = parseFloat(document.getElementById("input-lon").value);
+      const altura = parseFloat(document.getElementById("input-altura").value);
+      const alturaReceiver = parseFloat(document.getElementById("input-receiver").value);
+
+      if (isNaN(lat) || isNaN(lon) || isNaN(altura)) {
+        mostrarMensagem("❌ Preencha todos os campos corretamente", "erro");
+        return;
+      }
+
+      document.getElementById("modal-expert").classList.add("hidden");
+      mostrarLoader(true);
+
+      const res = await fetch("https://projeto-irricontrol.onrender.com/simular_manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat, lon, altura_antena: altura, altura_receiver: alturaReceiver })
+      });
+
+      const data = await res.json();
+      mostrarLoader(false);
+
+      if (data.bounds && data.imagem_salva) {
+        const [south, west, north, east] = data.bounds;
+        const bounds = [[south, west], [north, east]];
+        L.imageOverlay(data.imagem_salva, bounds).addTo(map);
+        map.fitBounds(bounds);
+        mostrarMensagem("🧪 Estudo manual concluído com sucesso.");
+      } else {
+        mostrarMensagem("❌ Erro na simulação manual", "erro");
       }
     });
 
