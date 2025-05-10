@@ -183,33 +183,58 @@ async def simular_manual(params: dict):
         "transmitter": {
             "lat": params["lat"],
             "lon": params["lon"],
-            "alt": params.get("altura_antena", 15),
+            "alt": params.get("altura", 15),
             "frq": 915,
             "txw": 0.3,
             "bwi": 0.1,
             "powerUnit": "W"
         },
         "receiver": {
-            "lat": 0, "lon": 0,
+            "lat": 0,
+            "lon": 0,
             "alt": params.get("altura_receiver", 3),
-            "rxg": 3, "rxs": -90
+            "rxg": 3,
+            "rxs": -90
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
         "antenna": {
-            "mode": "template", "txg": 3, "txl": 0, "ant": 1,
-            "azi": 0, "tlt": 0, "hbw": 360, "vbw": 90, "fbr": 3, "pol": "v"
+            "mode": "template",
+            "txg": 3,
+            "txl": 0,
+            "ant": 1,
+            "azi": 0,
+            "tlt": 0,
+            "hbw": 360,
+            "vbw": 90,
+            "fbr": 3,
+            "pol": "v"
         },
         "model": {
-            "pm": 1, "pe": 2, "ked": 4, "rel": 95,
-            "rcs": 1, "month": 4, "hour": 12, "sunspots_r12": 100
+            "pm": 1,
+            "pe": 2,
+            "ked": 4,
+            "rel": 95,
+            "rcs": 1,
+            "month": 4,
+            "hour": 12,
+            "sunspots_r12": 100
         },
         "environment": {
-            "elevation": 1, "landcover": 1, "buildings": 0,
-            "obstacles": 0, "clt": "Minimal.clt"
+            "elevation": 1,
+            "landcover": 1,
+            "buildings": 0,
+            "obstacles": 0,
+            "clt": "Minimal.clt"
         },
         "output": {
-            "units": "m", "col": "IRRICONTRO.dBm", "out": 2,
-            "ber": 1, "mod": 7, "nf": -120, "res": 30, "rad": 10
+            "units": "m",
+            "col": "IRRICONTRO.dBm",
+            "out": 2,
+            "ber": 1,
+            "mod": 7,
+            "nf": -120,
+            "res": 30,
+            "rad": 10
         }
     }
 
@@ -224,20 +249,19 @@ async def simular_manual(params: dict):
     imagem_url = data.get("PNG_WGS84")
     bounds = data.get("bounds")
 
-    # Salva a imagem do estudo da repetidora com nome diferente
+    # Salva a imagem manual com nome local
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
         with open("static/imagens/sinal_manual.png", "wb") as f:
             f.write(r.content)
 
-    # Recarrega os pivôs do KMZ
     _, pivos, _ = parse_kmz("arquivos/entrada.kmz")
 
-    # Detecta os pivôs fora da nova cobertura da repetidora
+    # Analisa com base na imagem local salva
     pivos_com_status = detectar_pivos_fora(bounds, pivos, "static/imagens/sinal_manual.png")
 
     return {
-        "imagem_salva": imagem_url,
+        "imagem_salva": "/static/imagens/sinal_manual.png",  # usa o path local
         "bounds": bounds,
         "status": "Simulação manual concluída",
         "pivos": pivos_com_status
