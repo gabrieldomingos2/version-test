@@ -65,7 +65,7 @@ def parse_kmz(caminho_kmz):
 
     return antena, pivos, ciclos
 
-def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png"):
+def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png", pivos_existentes=[]):
     try:
         img = Image.open(caminho_imagem).convert("RGBA")
         largura, altura = img.size
@@ -80,13 +80,17 @@ def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png"
         for pivo in pivos:
             x = int((pivo["lon"] - oeste) / (leste - oeste) * largura)
             y = int((norte - pivo["lat"]) / (norte - sul) * altura)
+
             if 0 <= x < largura and 0 <= y < altura:
                 r, g, b, a = img.getpixel((x, y))
                 dentro_cobertura = a > 0
             else:
                 dentro_cobertura = False
 
-            pivo["fora"] = not dentro_cobertura
+            # Se ele já estava coberto em estudos anteriores, continua verde!
+            ja_estava_coberto = any(p["nome"] == pivo["nome"] and not p.get("fora", False) for p in pivos_existentes)
+            pivo["fora"] = not dentro_cobertura and not ja_estava_coberto
+
             resultado.append(pivo)
 
         return resultado
@@ -249,19 +253,17 @@ async def simular_manual(params: dict):
     imagem_url = data.get("PNG_WGS84")
     bounds = data.get("bounds")
 
-    # Salva a imagem manual com nome local
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
         with open("static/imagens/sinal_manual.png", "wb") as f:
             f.write(r.content)
 
     _, pivos, _ = parse_kmz("arquivos/entrada.kmz")
-
-    # Analisa com base na imagem local salva
-    pivos_com_status = detectar_pivos_fora(bounds, pivos, "static/imagens/sinal_manual.png")
+    pivos_atuais = params.get("pivos_atuais", [])
+    pivos_com_status = detectar_pivos_fora(bounds, pivos, "static/imagens/sinal_manual.png", pivos_atuais)
 
     return {
-        "imagem_salva": "/static/imagens/sinal_manual.png",  # usa o path local
+        "imagem_salva": "/static/imagens/sinal_manual.png",
         "bounds": bounds,
         "status": "Simulação manual concluída",
         "pivos": pivos_com_status
