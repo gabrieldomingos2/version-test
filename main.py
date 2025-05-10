@@ -95,35 +95,11 @@ def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png"
             resultado.append(pivo)
 
         return resultado
-    
-    # ⛰️ Nova função: detecta os pontos mais verdes da imagem
-def detectar_pontos_altos(bounds, caminho_imagem="static/imagens/sinal.png", top_n=5):
-    try:
-        img = Image.open(caminho_imagem).convert("RGB")
-        largura, altura = img.size
-        sul, oeste, norte, leste = bounds
-
-        pixels = []
-
-        for y in range(altura):
-            for x in range(largura):
-                r, g, b = img.getpixel((x, y))
-                score = g - r - b
-                if score > 50:  # verde destacado
-                    lat = norte - (y / altura) * (norte - sul)
-                    lon = oeste + (x / largura) * (leste - oeste)
-                    pixels.append((score, lat, lon))
-
-        top_pontos = sorted(pixels, key=lambda x: -x[0])[:top_n]
-        return [{"lat": lat, "lon": lon, "score": score} for score, lat, lon in top_pontos]
-
-    except Exception as e:
-        print("Erro ao detectar pontos altos:", e)
-        return []
 
     except Exception as e:
         print("Erro na análise de imagem:", e)
         return pivos
+
 
 @app.post("/processar_kmz")
 async def processar_kmz(file: UploadFile = File(...)):
@@ -295,9 +271,37 @@ async def simular_manual(params: dict):
         "pivos": pivos_com_status
     }
 
+# ⛰️ Função: detecta os pontos mais altos da imagem (base no canal verde)
+def detectar_pontos_altos(bounds, caminho_imagem="static/imagens/sinal.png", top_n=5):
+    try:
+        img = Image.open(caminho_imagem).convert("RGB")
+        largura, altura = img.size
+        sul, oeste, norte, leste = bounds
+
+        pixels = []
+
+        for y in range(altura):
+            for x in range(largura):
+                r, g, b = img.getpixel((x, y))
+                score = g - r - b
+                if score > 50:
+                    lat = norte - (y / altura) * (norte - sul)
+                    lon = oeste + (x / largura) * (leste - oeste)
+                    pixels.append((score, lat, lon))
+
+        top_pontos = sorted(pixels, key=lambda x: -x[0])[:top_n]
+        return [{"lat": lat, "lon": lon, "score": score} for score, lat, lon in top_pontos]
+
+    except Exception as e:
+        print("Erro ao detectar pontos altos:", e)
+        return []
+
+# 🧪 Endpoint de diagnóstico para visualizar os pontos mais altos
 @app.get("/diagnostico/pontos-altos")
 async def diagnostico_pontos_altos():
     caminho_imagem = "static/imagens/sinal.png"
-    bounds = [-21.9361, -47.0956, -21.7426, -46.9021]  # você pode substituir pelos bounds reais da sua imagem
+    bounds = [-21.9361, -47.0956, -21.7426, -46.9021]  # substitua se quiser tornar dinâmico
     pontos = detectar_pontos_altos(bounds, caminho_imagem)
     return {"pontos_altos": pontos}
+
+    
