@@ -196,6 +196,7 @@
   }).addTo(map);
 
   // Variáveis globais
+  let overlaysVisiveis = [];
   let antenaGlobal = null;
   let marcadorAntena = null;
   let marcadorPosicionamento = null;
@@ -235,59 +236,114 @@
     document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${pivos.filter(p => p.fora).length}`;
     document.getElementById("altura-antena-info").textContent = `Altura da antena: ${antena.altura} m`;
     document.getElementById("altura-receiver-info").textContent = `Altura receiver: ${receiverAltura} m`;
-  }
+    }
+
+  // 🔁 Reavalia os pivôs com base nas camadas visíveis de sinal no mapa
+  function reavaliarPivosSemCobertura() {
+  const overlaysAtivos = [];
+
+  map.eachLayer(layer => {
+    if (layer instanceof L.ImageOverlay && map.hasLayer(layer)) {
+      overlaysAtivos.push(layer.getBounds());
+    }
+  });
+
+  Object.entries(pivotsMap).forEach(([nome, marcador]) => {
+    const centro = marcador.getLatLng();
+    const coberto = overlaysAtivos.some(bounds => bounds.contains(centro));
+
+    const novaCor = coberto ? 'green' : 'red';
+    marcador.setStyle({
+      color: novaCor,
+      fillColor: novaCor,
+      fillOpacity: 0.6
+    });
+
+    marcador.bindPopup(`<div class="popup-glass">${coberto ? '✅' : '❌'} ${nome}</div>`);
+  });
+
+  const fora = Object.values(pivotsMap).filter(m => m.options.fillColor === 'red').length;
+  document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${fora}`;
+}
+
+
 </script>
 
 <script>
   // Adiciona repetidora no painel lateral com opção de visualização e remoção
-  function adicionarRepetidoraNoPainel(repetidora) {
-    const container = document.getElementById("lista-repetidoras");
+    function adicionarRepetidoraNoPainel(repetidora) {
+  const container = document.getElementById("lista-repetidoras");
 
-    const item = document.createElement("div");
-    item.className = "flex justify-between items-center bg-gray-800 px-2 py-1 rounded";
+  const item = document.createElement("div");
+  item.className = "flex justify-between items-center bg-gray-800 px-2 py-1 rounded";
 
-    const label = document.createElement("label");
-    label.textContent = `Repetidora ${repetidora.id}`;
-    label.className = "text-white";
+  const label = document.createElement("label");
+  label.textContent = `Repetidora ${repetidora.id}`;
+  label.className = "text-white";
 
-    const controls = document.createElement("div");
-    controls.className = "flex gap-2 items-center";
+  const controls = document.createElement("div");
+  controls.className = "flex gap-2 items-center";
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = true;
-    checkbox.className = "form-checkbox text-green-500";
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) {
-        repetidora.marker.addTo(map);
-        if (repetidora.overlay) map.addLayer(repetidora.overlay);
-        if (repetidora.label && !map.hasLayer(repetidora.label)) map.addLayer(repetidora.label);
-      } else {
-        map.removeLayer(repetidora.marker);
-        if (repetidora.overlay) map.removeLayer(repetidora.overlay);
-        if (repetidora.label && map.hasLayer(repetidora.label)) map.removeLayer(repetidora.label);
-      }
-    });
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = true;
+  checkbox.className = "form-checkbox text-green-500";
 
-    const removerBtn = document.createElement("button");
-    removerBtn.innerHTML = "❌";
-    removerBtn.className = "text-red-400 hover:text-red-600 font-bold";
-    removerBtn.addEventListener("click", () => {
-      map.removeLayer(repetidora.marker);
-      if (repetidora.overlay && map.hasLayer(repetidora.overlay)) map.removeLayer(repetidora.overlay);
-      if (repetidora.label && map.hasLayer(repetidora.label)) map.removeLayer(repetidora.label);
-      container.removeChild(item);
-      idsDisponiveis.push(repetidora.id);
-      idsDisponiveis.sort((a, b) => a - b);
-      repetidoras = repetidoras.filter(r => r.id !== repetidora.id);
-    });
+  // CHECKBOX DE VISIBILIDADE
+checkbox.addEventListener("change", () => {
+  if (checkbox.checked) {
+    repetidora.marker.addTo(map);
+    if (repetidora.overlay) {
+  map.addLayer(repetidora.overlay);
+  overlaysVisiveis.push(repetidora.overlay);
+}
 
-    controls.appendChild(checkbox);
-    controls.appendChild(removerBtn);
-    item.appendChild(label);
-    item.appendChild(controls);
-    container.appendChild(item);
+    if (repetidora.label && !map.hasLayer(repetidora.label)) map.addLayer(repetidora.label);
+  } else {
+    map.removeLayer(repetidora.marker);
+    if (repetidora.overlay) {
+  map.removeLayer(repetidora.overlay);
+  overlaysVisiveis = overlaysVisiveis.filter(o => o !== repetidora.overlay);
+}
+
+    if (repetidora.label && map.hasLayer(repetidora.label)) map.removeLayer(repetidora.label);
   }
+
+  requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+  reavaliarPivosViaAPI();
+  });
+});
+
+});
+
+  const removerBtn = document.createElement("button");
+  removerBtn.innerHTML = "❌";
+  removerBtn.className = "text-red-400 hover:text-red-600 font-bold";
+  // BOTÃO REMOVER
+removerBtn.addEventListener("click", () => {
+  map.removeLayer(repetidora.marker);
+  if (repetidora.overlay && map.hasLayer(repetidora.overlay)) {
+    map.removeLayer(repetidora.overlay);
+    repetidora.overlay = null; // <- limpa o overlay
+  }
+  if (repetidora.label && map.hasLayer(repetidora.label)) map.removeLayer(repetidora.label);
+  container.removeChild(item);
+  idsDisponiveis.push(repetidora.id);
+  idsDisponiveis.sort((a, b) => a - b);
+  repetidoras = repetidoras.filter(r => r.id !== repetidora.id);
+
+  reavaliarPivosSemCobertura(); // <-- aguarda a limpeza visual
+});
+
+
+  controls.appendChild(checkbox);
+  controls.appendChild(removerBtn);
+  item.appendChild(label);
+  item.appendChild(controls);
+  container.appendChild(item);
+}
+
 
   // Evento de envio do formulário KMZ
   document.getElementById('formulario').addEventListener('submit', async (e) => {
@@ -343,6 +399,52 @@
       })
     }).addTo(map);
     marcadoresLegenda.push(labelAntena);
+
+    // Adiciona a antena principal ao painel lateral com toggle
+const painelRepetidoras = document.getElementById("lista-repetidoras");
+
+const itemAntena = document.createElement("div");
+itemAntena.className = "flex justify-between items-center bg-gray-700 px-2 py-1 rounded";
+
+const labelAnt = document.createElement("label");
+labelAnt.textContent = antenaGlobal.nome || "Antena";
+labelAnt.className = "text-white";
+
+const toggleAntena = document.createElement("input");
+toggleAntena.type = "checkbox";
+toggleAntena.checked = true;
+toggleAntena.className = "form-checkbox text-green-500";
+toggleAntena.addEventListener("change", () => {
+  if (toggleAntena.checked) {
+    marcadorAntena.addTo(map);
+    if (antenaGlobal.overlay) {
+      map.addLayer(antenaGlobal.overlay);
+      overlaysVisiveis.push(antenaGlobal.overlay);
+    }
+  } else {
+    map.removeLayer(marcadorAntena);
+    if (antenaGlobal.overlay) {
+      map.removeLayer(antenaGlobal.overlay);
+      overlaysVisiveis = overlaysVisiveis.filter(o => o !== antenaGlobal.overlay);
+    }
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      reavaliarPivosViaAPI();
+    });
+  });
+});
+
+
+const controles = document.createElement("div");
+controles.className = "flex gap-2 items-center";
+controles.appendChild(toggleAntena);
+
+itemAntena.appendChild(labelAnt);
+itemAntena.appendChild(controles);
+painelRepetidoras.appendChild(itemAntena);
+
 
     // Desenha pivôs no mapa
     data.pivos.forEach(pivo => {
@@ -409,6 +511,7 @@
       // Remove overlay anterior
       if (antenaGlobal.overlay) {
         map.removeLayer(antenaGlobal.overlay);
+        reavaliarPivosSemCobertura();
       }
 
       // Adiciona nova imagem de sinal
@@ -416,6 +519,9 @@
         data.imagem_salva + '?t=' + Date.now(),
         bounds
       ).addTo(map);
+
+      overlaysVisiveis.push(antenaGlobal.overlay);
+
 
       map.fitBounds(bounds);
 
@@ -456,6 +562,10 @@
 
       atualizarPainel(data.pivos, antenaGlobal);
       mostrarMensagem("📡 Estudo de sinal concluído com sucesso.");
+      const btnSimular = document.getElementById("simular-btn");
+btnSimular.disabled = true;
+btnSimular.classList.add("opacity-50", "cursor-not-allowed");
+
     } else {
       mostrarMensagem("❌ Falha na simulação.", "erro");
     }
@@ -507,6 +617,9 @@
 
     // Esconde botões/painéis
     document.getElementById("simular-btn").classList.add("hidden");
+    const btnSimular = document.getElementById("simular-btn");
+    btnSimular.disabled = false;
+    btnSimular.classList.remove("opacity-50", "cursor-not-allowed");
     document.getElementById("lista-repetidoras").innerHTML = "";
     document.getElementById("painel-repetidora").classList.add("hidden");
     document.getElementById("painel-dados").classList.add("hidden");
@@ -607,7 +720,7 @@
         nome,
         lat: marcador.getLatLng().lat,
         lon: marcador.getLatLng().lng,
-        fora: marcador.options.fillColor === 'red'
+        fora: marcador.options.color.toLowerCase() === 'red' || marcador.options.color === '#ff0000'
       }))
     };
 
@@ -621,47 +734,43 @@
     mostrarLoader(false);
 
     if (data.imagem_salva && data.bounds) {
-          const [south, west, north, east] = data.bounds;
-          const bounds = [[south, west], [north, east]];
+      const [south, west, north, east] = data.bounds;
+      const bounds = [[south, west], [north, east]];
 
-          const overlay = L.imageOverlay(
-  data.imagem_salva + '?t=' + Date.now(),
-  bounds
-).addTo(map);
-
-repetidoraObj.overlay = overlay;
-
+      const overlay = L.imageOverlay(data.imagem_salva + '?t=' + Date.now(), bounds).addTo(map);
+      overlaysVisiveis.push(overlay);
+      repetidoraObj.overlay = overlay;
+    }
 
     if (data.pivos) {
       data.pivos.forEach(pivo => {
+        const corFinal = pivo.fora ? 'red' : 'green';
+
         if (pivotsMap[pivo.nome]) {
-          const marcadorAntigo = pivotsMap[pivo.nome];
-          marcadorAntigo.remove();
-
-          const corFinal = pivo.fora ? 'red' : 'green';
-
-          const novoMarcador = L.circleMarker([pivo.lat, pivo.lon], {
-            radius: 6,
-            color: corFinal,
-            fillColor: corFinal,
-            fillOpacity: 0.6,
-            className: pivo.fora ? 'circulo-futurista' : ''
-          }).addTo(map).bindPopup(
-            `<div class="popup-glass">${pivo.fora ? '❌' : '✅'} ${pivo.nome}</div>`
-          );
-
-          pivotsMap[pivo.nome] = novoMarcador;
-
-          const label = L.marker([pivo.lat, pivo.lon], {
-            icon: L.divIcon({
-              className: 'label-pivo',
-              html: pivo.nome,
-              iconSize: [60, 20],
-              iconAnchor: [30, -10]
-            })
-          }).addTo(map);
-          marcadoresLegenda.push(label);
+          map.removeLayer(pivotsMap[pivo.nome]);
         }
+
+        const novoMarcador = L.circleMarker([pivo.lat, pivo.lon], {
+          radius: 6,
+          color: corFinal,
+          fillColor: corFinal,
+          fillOpacity: 0.6,
+          className: pivo.fora ? 'circulo-futurista' : ''
+        }).addTo(map).bindPopup(
+          `<div class="popup-glass">${pivo.fora ? '❌' : '✅'} ${pivo.nome}</div>`
+        );
+
+        pivotsMap[pivo.nome] = novoMarcador;
+
+        const label = L.marker([pivo.lat, pivo.lon], {
+          icon: L.divIcon({
+            className: 'label-pivo',
+            html: pivo.nome,
+            iconSize: [60, 20],
+            iconAnchor: [30, -10]
+          })
+        }).addTo(map);
+        marcadoresLegenda.push(label);
       });
 
       const totalPivos = Object.keys(pivotsMap).length;
@@ -669,8 +778,8 @@ repetidoraObj.overlay = overlay;
 
       document.getElementById("total-pivos").textContent = `Pivôs: ${totalPivos}`;
       document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${foraCobertura}`;
-      document.getElementById("altura-antena-info").textContent = `Altura da antena: ${alturaAntena} m`;
-      document.getElementById("altura-receiver-info").textContent = `Altura receiver: ${alturaReceiver} m`;
+      document.getElementById("altura-antena-info").textContent = `Altura da antena: ${repetidoraObj?.altura || '--'} m`;
+      document.getElementById("altura-receiver-info").textContent = `Altura receiver: ${repetidoraObj?.altura_receiver || '--'} m`;
     }
   });
 </script>
@@ -693,6 +802,62 @@ repetidoraObj.overlay = overlay;
       }
     });
   });
+
+  // 🔁 Reavalia pivôs com base nas imagens visíveis
+  async function reavaliarPivosViaAPI() {
+    const pivos = Object.entries(pivotsMap).map(([nome, marcador]) => {
+      const { lat, lng } = marcador.getLatLng();
+      return { nome, lat, lon: lng };
+    });
+
+    const overlays = [];
+
+    // Verifica overlays visíveis (antena + repetidoras)
+if (antenaGlobal?.overlay && map.hasLayer(antenaGlobal.overlay)) {
+  const b = antenaGlobal.overlay.getBounds().toBBoxString().split(",").map(Number);
+  overlays.push({
+    imagem: "https://projeto-irricontrol.onrender.com/static/imagens/sinal.png",
+    bounds: [b[1], b[0], b[3], b[2]]
+  });
+}
+
+repetidoras.forEach(rep => {
+  if (rep.overlay && map.hasLayer(rep.overlay)) {
+    const b = rep.overlay.getBounds().toBBoxString().split(",").map(Number);
+    overlays.push({
+      imagem: `https://projeto-irricontrol.onrender.com/static/imagens/repetidora_${rep.marker.getLatLng().lat.toString().replace(".", "_")}_${rep.marker.getLatLng().lng.toString().replace(".", "_")}.png`,
+      bounds: [b[1], b[0], b[3], b[2]]
+    });
+  }
+});
+
+    const res = await fetch("https://projeto-irricontrol.onrender.com/reavaliar_pivos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pivos, overlays })
+    });
+
+    const data = await res.json();
+
+    if (data.pivos) {
+      data.pivos.forEach(pivo => {
+        if (pivotsMap[pivo.nome]) {
+          const cor = pivo.fora ? 'red' : 'green';
+          pivotsMap[pivo.nome].setStyle({
+            color: cor,
+            fillColor: cor,
+            fillOpacity: 0.6
+          });
+          pivotsMap[pivo.nome].bindPopup(
+            `<div class="popup-glass">${pivo.fora ? '❌' : '✅'} ${pivo.nome}</div>`
+          );
+        }
+      });
+
+      const fora = data.pivos.filter(p => p.fora).length;
+      document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${fora}`;
+    }
+  }
 </script>
 </body>
 </html>
