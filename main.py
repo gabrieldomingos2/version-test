@@ -108,18 +108,21 @@ async def processar_kmz(file: UploadFile = File(...)):
     caminho_kmz = "arquivos/entrada.kmz"
     with open(caminho_kmz, "wb") as f:
         f.write(conteudo)
+
     antena, pivos, ciclos = parse_kmz(caminho_kmz)
+
     if not antena:
         return {"erro": "Antena não encontrada no KMZ"}
+
+    # ✅ SALVA o contorno da fazenda dentro da função
+    if ciclos:
+        maior = max(ciclos, key=lambda c: len(c["coordenadas"]))
+        coords_fazenda = [[lon, lat] for lat, lon in maior["coordenadas"]]
+        with open("static/contorno_fazenda.json", "w") as f:
+            json.dump(coords_fazenda, f)
+
     return {"antena": antena, "pivos": pivos, "ciclos": ciclos}
-# 👇 Salva o contorno da fazenda (a partir dos ciclos)
-if ciclos:
-    # Usa o maior polígono detectado
-    maior = max(ciclos, key=lambda c: len(c["coordenadas"]))
-    # Salva como lista de [lon, lat]
-    coords_fazenda = [[lon, lat] for lat, lon in maior["coordenadas"]]
-    with open("static/contorno_fazenda.json", "w") as f:
-        json.dump(coords_fazenda, f)
+
 
 
 @app.post("/simular_sinal")

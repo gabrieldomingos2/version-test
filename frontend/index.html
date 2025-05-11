@@ -585,6 +585,14 @@ marcadoresLegenda.push(labelAntena);
     map.removeLayer(marcadorAntena);
   }
 
+  // Remove pontos altos do mapa
+marcadoresPontosAltos.forEach(m => {
+  if (map.hasLayer(m)) map.removeLayer(m);
+});
+marcadoresPontosAltos = [];
+pontosAltosVisiveis = false;
+
+
   // Remove marcador de posicionamento
   if (marcadorPosicionamento && map.hasLayer(marcadorPosicionamento)) {
     map.removeLayer(marcadorPosicionamento);
@@ -845,7 +853,9 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
         pane: "pontosAltosPane"  
       })
       .addTo(map)
-      .bindPopup(`🟢 Ponto Alto ${i + 1}<br>Lat: ${p.lat.toFixed(5)}<br>Lon: ${p.lon.toFixed(5)}<br>Score: ${p.score}`);
+      .bindPopup(
+  `<div class="popup-glass">🟢 Ponto Alto ${i + 1}<br>Lat: ${p.lat.toFixed(5)}<br>Lon: ${p.lon.toFixed(5)}<br>Score: ${p.score}</div>`
+    );
       console.log("Renderizando ponto alto:", p.lat, p.lon);
 
       marcadoresPontosAltos.push(marcador);
