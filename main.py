@@ -25,6 +25,7 @@ API_KEY = "35113-e181126d4af70994359d767890b3a4f2604eb0ef"
 def icone_torre():
     return FileResponse("static/imagens/cloudrf.png", media_type="image/png")
 
+
 def parse_kmz(caminho_kmz):
     antena = None
     pivos = []
@@ -209,6 +210,7 @@ async def simular_sinal(antena: dict):
         "pivos": pivos_com_status
     }
 
+
 @app.post("/simular_manual")
 async def simular_manual(params: dict):
     payload = {
@@ -297,14 +299,24 @@ async def simular_manual(params: dict):
         with open(caminho_local, "wb") as f:
             f.write(r.content)
 
-    # 🔁 URL final acessível via frontend (Netlify)
+        # 🔁 URL final acessível via frontend (Netlify)
     imagem_local_url = f"https://projeto-irricontrol.onrender.com/static/imagens/{nome_arquivo}"
 
-    # Analisa cobertura com base nos pivôs existentes
-    pivos = detectar_pivos_fora(bounds, params.get("pivos_atuais", []))
+    # Recarrega os pivôs reais do KMZ
+    _, pivos_atualizados, _ = parse_kmz("arquivos/entrada.kmz")
+    pivos_anteriores = params.get("pivos_atuais", [])
+
+    # Detecta os pivôs fora da cobertura usando a nova imagem da repetidora
+    pivos_com_status = detectar_pivos_fora(
+        bounds,
+        pivos_atualizados,
+        caminho_imagem=caminho_local,
+        pivos_existentes=pivos_anteriores
+    )
 
     return {
         "imagem_salva": imagem_local_url,
         "bounds": bounds,
-        "pivos": pivos
+        "pivos": pivos_com_status
     }
+
