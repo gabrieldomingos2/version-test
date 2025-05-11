@@ -621,16 +621,16 @@
     mostrarLoader(false);
 
     if (data.imagem_salva && data.bounds) {
-      const [south, west, north, east] = data.bounds;
-      const bounds = [[south, west], [north, east]];
+          const [south, west, north, east] = data.bounds;
+          const bounds = [[south, west], [north, east]];
 
-      const overlay = L.imageOverlay(
-        "https://projeto-irricontrol.onrender.com" + data.imagem_salva + '?t=' + Date.now(),
-        bounds
-      ).addTo(map);
+          const overlay = L.imageOverlay(
+  data.imagem_salva + '?t=' + Date.now(),
+  bounds
+).addTo(map);
 
-      repetidoraObj.overlay = overlay;
-    }
+repetidoraObj.overlay = overlay;
+
 
     if (data.pivos) {
       data.pivos.forEach(pivo => {

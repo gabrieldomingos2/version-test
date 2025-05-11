@@ -143,6 +143,7 @@ async def processar_kmz(file: UploadFile = File(...)):
         return {"erro": f"Erro interno ao processar KMZ: {str(e)}"}
 
 
+
 @app.post("/simular_sinal")
 async def simular_sinal(antena: dict):
     payload = {
@@ -285,17 +286,22 @@ async def simular_manual(params: dict):
     imagem_url = data.get("PNG_WGS84")
     bounds = data.get("bounds")
 
-    # Baixa e salva a imagem
+    # 🔽 Salva imagem com nome único por coordenada
+    nome_arquivo = f"repetidora_{params['lat']}_{params['lon']}.png".replace(".", "_")
+    caminho_local = f"static/imagens/{nome_arquivo}"
+
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
-        with open("static/imagens/sinal.png", "wb") as f:
+        with open(caminho_local, "wb") as f:
             f.write(r.content)
 
-    # Analisa cobertura com base na imagem
+    imagem_local_url = f"/static/imagens/{nome_arquivo}"
+
+    # Analisa cobertura com base nos pivôs existentes
     pivos = detectar_pivos_fora(bounds, params.get("pivos_atuais", []))
 
     return {
-        "imagem_salva": imagem_url,
+        "imagem_salva": imagem_local_url,
         "bounds": bounds,
         "pivos": pivos
     }
