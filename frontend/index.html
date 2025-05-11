@@ -192,6 +192,8 @@
     <script>
     // Inicializa o mapa no centro do Brasil
     const map = L.map('map').setView([-15, -55], 5);
+    map.createPane("pontosAltosPane");
+    map.getPane("pontosAltosPane").style.zIndex = 650;
 
     // Camada satélite do Google
     const satelite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
@@ -213,6 +215,8 @@
     let pivosOriginais = [];
     let legendasAtivas = true;
     let marcadoresLegenda = [];
+    let marcadoresPontosAltos = [];
+    let pontosAltosVisiveis = false;
 
 
     // Alterna painel de dados
@@ -816,26 +820,47 @@ const repetidoraObj = {
 
 // Diagnóstico: mostra pontos mais altos (verde forte)
 document.getElementById("btn-diagnostico").addEventListener("click", async () => {
+  if (pontosAltosVisiveis) {
+    // Se já estiver visível, oculta os pontos
+    marcadoresPontosAltos.forEach(m => map.removeLayer(m));
+    marcadoresPontosAltos = [];
+    pontosAltosVisiveis = false;
+    mostrarMensagem("👋 Pontos altos ocultados.");
+    return;
+  }
+
   mostrarLoader(true);
 
-  const res = await fetch("https://projeto-irricontrol.onrender.com/diagnostico/pontos-altos");
-  const data = await res.json();
+  try {
+    const res = await fetch("https://projeto-irricontrol.onrender.com/diagnostico/pontos-altos");
+    const data = await res.json();
 
-  data.pontos_altos.forEach(p => {
-    L.circleMarker([p.lat, p.lon], {
-      radius: 10,
-      color: "#00FF00",
-      fillColor: "#00FF00",
-      fillOpacity: 0.9,
-      weight: 2
-    })
-    .addTo(map)
-    .bindPopup(`🟢 Ponto Alto<br>Lat: ${p.lat.toFixed(5)}<br>Lon: ${p.lon.toFixed(5)}<br>Score: ${p.score}`);
-  });
+    data.pontos_altos.forEach((p, i) => {
+      const marcador = L.circleMarker([p.lat, p.lon], {
+        radius: 10,
+        color: "#00FF00",
+        fillColor: "#00FF00",
+        fillOpacity: 0.9,
+        weight: 2,
+        pane: "pontosAltosPane"  
+      })
+      .addTo(map)
+      .bindPopup(`🟢 Ponto Alto ${i + 1}<br>Lat: ${p.lat.toFixed(5)}<br>Lon: ${p.lon.toFixed(5)}<br>Score: ${p.score}`);
+      console.log("Renderizando ponto alto:", p.lat, p.lon);
 
-  mostrarLoader(false);
-  mostrarMensagem("🧪 Pontos altos destacados no mapa!");
+      marcadoresPontosAltos.push(marcador);
+    });
+
+    pontosAltosVisiveis = true;
+    mostrarMensagem("🧪 Pontos altos destacados no mapa!");
+  } catch (error) {
+    console.error("Erro ao buscar pontos altos:", error);
+    mostrarMensagem("❌ Falha ao buscar pontos altos", "erro");
+  } finally {
+    mostrarLoader(false);
+  }
 });
+
 
 
     </script>

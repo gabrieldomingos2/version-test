@@ -112,6 +112,15 @@ async def processar_kmz(file: UploadFile = File(...)):
     if not antena:
         return {"erro": "Antena não encontrada no KMZ"}
     return {"antena": antena, "pivos": pivos, "ciclos": ciclos}
+# 👇 Salva o contorno da fazenda (a partir dos ciclos)
+if ciclos:
+    # Usa o maior polígono detectado
+    maior = max(ciclos, key=lambda c: len(c["coordenadas"]))
+    # Salva como lista de [lon, lat]
+    coords_fazenda = [[lon, lat] for lat, lon in maior["coordenadas"]]
+    with open("static/contorno_fazenda.json", "w") as f:
+        json.dump(coords_fazenda, f)
+
 
 @app.post("/simular_sinal")
 async def simular_sinal(antena: dict):
@@ -297,11 +306,33 @@ def detectar_pontos_altos(bounds, caminho_imagem="static/imagens/sinal.png", top
         return []
 
 # 🧪 Endpoint de diagnóstico para visualizar os pontos mais altos
+from shapely.geometry import Point, Polygon
+import json
+
 @app.get("/diagnostico/pontos-altos")
 async def diagnostico_pontos_altos():
     caminho_imagem = "static/imagens/sinal.png"
-    bounds = [-21.9361, -47.0956, -21.7426, -46.9021]  # substitua se quiser tornar dinâmico
-    pontos = detectar_pontos_altos(bounds, caminho_imagem)
-    return {"pontos_altos": pontos}
+
+    try:
+        # 1. Carrega o contorno da fazenda (salvo no /processar_kmz)
+        with open("static/contorno_fazenda.json", "r") as f:
+            coords = json.load(f)  # lista de [lon, lat]
+
+        poligono = Polygon(coords)
+
+        # 2. Calcula os bounds automaticamente
+        lons = [p[0] for p in coords]
+        lats = [p[1] for p in coords]
+        bounds = [min(lats), min(lons), max(lats), max(lons)]
+
+        # 3. Detecta pontos altos e filtra só os que estão dentro do polígono
+        todos = detectar_pontos_altos(bounds, caminho_imagem)
+        filtrados = [p for p in todos if poligono.contains(Point(p["lon"], p["lat"]))]
+
+        return {"pontos_altos": filtrados}
+
+    except Exception as e:
+        return {"erro": f"Erro ao detectar pontos altos: {str(e)}"}
+
 
     
