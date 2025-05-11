@@ -9,7 +9,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://projeto-irricontrol.netlify.app"],
+    allow_origins=["https://version-test.netlify.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -300,7 +300,7 @@ async def simular_manual(params: dict):
             f.write(r.content)
 
         # 🔁 URL final acessível via frontend (Netlify)
-    imagem_local_url = f"https://projeto-irricontrol.onrender.com/static/imagens/{nome_arquivo}"
+    imagem_local_url = f"https://version-test.onrender.com/static/imagens/{nome_arquivo}"
 
     # Recarrega os pivôs reais do KMZ
     _, pivos_atualizados, _ = parse_kmz("arquivos/entrada.kmz")
@@ -338,7 +338,7 @@ async def reavaliar_pivos(data: dict):
 
                 # ✅ Corrige se veio como URL
                 if imagem_path.startswith("http"):
-                    imagem_path = imagem_path.replace("https://projeto-irricontrol.onrender.com/", "")
+                    imagem_path = imagem_path.replace("https://version-test.onrender.com/", "")
 
                 try:
                     img = Image.open(imagem_path).convert("RGBA")

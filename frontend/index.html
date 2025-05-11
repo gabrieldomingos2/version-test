@@ -99,6 +99,31 @@
     .leaflet-popup-tip-container {
       display: none;
     }
+
+@media (max-width: 768px) {
+  #painel-dados {
+    display: none !important;
+  }
+}
+
+#painel-repetidoras {
+  margin-top: 12px;
+}
+
+#painel-dados,
+#painel-repetidoras {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+#painel-dados:not(.hidden),
+#painel-repetidoras:not(.hidden) {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+
   </style>
 </head>
 
@@ -107,24 +132,38 @@
   <!-- Botão para abrir o painel de dados -->
   <button id="toggle-painel" class="glass-button absolute top-4 right-4 z-[9999]">🧾</button>
 
-  <!-- Painel lateral com dados do estudo -->
-  <div id="painel-dados" class="absolute top-20 right-0 bg-black bg-opacity-60 p-4 rounded-l-xl shadow-xl w-64 z-[9998] hidden">
+  <!-- Botão para alternar legenda -->
+  <button id="toggle-legenda" class="glass-button absolute top-4 right-52 z-[9999]">🏷️</button>
+
+  <!-- Botão para abrir painel de repetidoras -->
+  <button id="toggle-repetidoras" class="glass-button absolute top-4 right-28 z-[9999]">📍</button>
+
+  <!-- Contêiner pai para alinhar os dois painéis fixos no canto direito -->
+<div class="absolute top-20 right-4 flex flex-col items-end space-y-2 z-[9998]">
+  <!-- Painel de dados da simulação -->
+  <div id="painel-dados" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden">
     <h2 class="text-lg font-bold mb-2">📊 Dados da Simulação</h2>
+    <div class="flex justify-between items-center mb-1">
+      <span class="font-semibold text-sm text-red-300">❌ Fora da cobertura:</span>
+      <button onclick="copiarPivosFora()" class="text-xs text-green-400 hover:underline">📋 Copiar</button>
+    </div>
     <p id="total-pivos">Pivôs: --</p>
     <p id="fora-cobertura">Fora da cobertura: --</p>
+    <div id="lista-pivos-fora" class="mt-2 space-y-1 text-sm text-red-400"></div>
     <p id="altura-antena-info">Altura da antena: -- m</p>
     <p id="altura-receiver-info">Altura receiver: -- m</p>
   </div>
 
-  <!-- Painel lateral de repetidoras adicionadas -->
-  <div id="painel-repetidoras" class="absolute top-4 right-72 bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-60 z-[9998] hidden">
+  <!-- Painel de repetidoras -->
+  <div id="painel-repetidoras" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden">
     <h2 class="text-lg font-bold mb-2 text-green-300">📍 Repetidoras</h2>
     <div id="lista-repetidoras" class="space-y-2 text-sm"></div>
   </div>
+</div>
 
   <!-- Título central no topo -->
   <div class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 px-6 py-2 rounded-xl shadow-xl top-controls">
-    <h1 class="text-2xl font-bold text-green-400 text-center">📡 Simulador de Cobertura de Sinal</h1>
+    <h1 class="text-2xl font-bold text-green-400 text-center">📡 Beta Version</h1>
   </div>
 
   <!-- Controles principais (formulário e botões) à esquerda -->
@@ -140,12 +179,6 @@
     <button id="simular-btn" class="glass-button bg-blue-600 hover:bg-blue-700 hidden w-56">📶 Rodar Estudo de Sinal</button>
     <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm w-56">🔄 Resetar</button>
   </div>
-
-  <!-- Botão para alternar legenda -->
-  <button id="toggle-legenda" class="glass-button absolute top-4 right-52 z-[9999]">🏷️</button>
-
-  <!-- Botão para abrir painel de repetidoras -->
-  <button onclick="document.getElementById('painel-repetidoras').classList.toggle('hidden')" class="glass-button absolute top-4 right-28 z-[9999]">📍</button>
 
   <!-- Mensagem temporária -->
   <div id="mensagem" class="hidden absolute bottom-16 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg text-center font-semibold z-50"></div>
@@ -213,8 +246,9 @@
 
   // Exibe ou oculta o painel de dados
   document.getElementById("toggle-painel").addEventListener("click", () => {
-    document.getElementById("painel-dados").classList.toggle("hidden");
-  });
+  document.getElementById("painel-dados").classList.toggle("hidden");
+});
+
 
   // Mostra mensagem temporária (verde ou vermelha)
   const mostrarMensagem = (texto, tipo = 'sucesso') => {
@@ -354,7 +388,7 @@ removerBtn.addEventListener("click", () => {
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
 
-    const res = await fetch("https://projeto-irricontrol.onrender.com/processar_kmz", {
+    const res = await fetch("https://version-test.onrender.com/processar_kmz", {
       method: "POST",
       body: formData
     });
@@ -380,7 +414,7 @@ removerBtn.addEventListener("click", () => {
 
     // Ícone da antena
     const antenaIcon = L.icon({
-      iconUrl: "https://projeto-irricontrol.onrender.com/icone-torre",
+      iconUrl: "https://version-test.onrender.com/icone-torre",
       iconSize: [40, 40],
       iconAnchor: [20, 40],
       popupAnchor: [0, -40]
@@ -495,7 +529,7 @@ painelRepetidoras.appendChild(itemAntena);
 
     mostrarLoader(true);
 
-    const res = await fetch("https://projeto-irricontrol.onrender.com/simular_sinal", {
+    const res = await fetch("https://version-test.onrender.com/simular_sinal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(antenaGlobal)
@@ -638,7 +672,7 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
     coordenadaClicada = e.latlng;
 
     const iconePosicionamento = L.icon({
-      iconUrl: "https://projeto-irricontrol.onrender.com/icone-torre",
+      iconUrl: "https://version-test.onrender.com/icone-torre",
       iconSize: [35, 35],
       iconAnchor: [17, 35],
       popupAnchor: [0, -30]
@@ -669,7 +703,7 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
     const alturaReceiver = parseFloat(document.getElementById("altura-receiver-rep").value);
 
     const repetidoraIcon = L.icon({
-      iconUrl: "https://projeto-irricontrol.onrender.com/icone-torre",
+      iconUrl: "https://version-test.onrender.com/icone-torre",
       iconSize: [40, 40],
       iconAnchor: [20, 40],
       popupAnchor: [0, -40]
@@ -724,7 +758,7 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
       }))
     };
 
-    const res = await fetch("https://projeto-irricontrol.onrender.com/simular_manual", {
+    const res = await fetch("https://version-test.onrender.com/simular_manual", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -793,15 +827,19 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
 
   // Alternar exibição de legendas (nomes)
   document.getElementById("toggle-legenda").addEventListener("click", () => {
-    legendasAtivas = !legendasAtivas;
-    marcadoresLegenda.forEach(m => {
-      if (legendasAtivas) {
-        m.addTo(map);
-      } else {
-        map.removeLayer(m);
-      }
-    });
+  legendasAtivas = !legendasAtivas;
+
+  marcadoresLegenda.forEach(m => {
+    const el = m.getElement?.();
+    if (!el) return;
+
+    if (legendasAtivas) {
+      el.classList.remove("hidden");
+    } else {
+      el.classList.add("hidden");
+    }
   });
+});
 
   // 🔁 Reavalia pivôs com base nas imagens visíveis
   async function reavaliarPivosViaAPI() {
@@ -816,7 +854,7 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
 if (antenaGlobal?.overlay && map.hasLayer(antenaGlobal.overlay)) {
   const b = antenaGlobal.overlay.getBounds().toBBoxString().split(",").map(Number);
   overlays.push({
-    imagem: "https://projeto-irricontrol.onrender.com/static/imagens/sinal.png",
+    imagem: "https://version-test.onrender.com/static/imagens/sinal.png",
     bounds: [b[1], b[0], b[3], b[2]]
   });
 }
@@ -825,13 +863,13 @@ repetidoras.forEach(rep => {
   if (rep.overlay && map.hasLayer(rep.overlay)) {
     const b = rep.overlay.getBounds().toBBoxString().split(",").map(Number);
     overlays.push({
-      imagem: `https://projeto-irricontrol.onrender.com/static/imagens/repetidora_${rep.marker.getLatLng().lat.toString().replace(".", "_")}_${rep.marker.getLatLng().lng.toString().replace(".", "_")}.png`,
+      imagem: `https://version-test.onrender.com/static/imagens/repetidora_${rep.marker.getLatLng().lat.toString().replace(".", "_")}_${rep.marker.getLatLng().lng.toString().replace(".", "_")}.png`,
       bounds: [b[1], b[0], b[3], b[2]]
     });
   }
 });
 
-    const res = await fetch("https://projeto-irricontrol.onrender.com/reavaliar_pivos", {
+    const res = await fetch("https://version-test.onrender.com/reavaliar_pivos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pivos, overlays })
@@ -858,6 +896,55 @@ repetidoras.forEach(rep => {
       document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${fora}`;
     }
   }
+
+  function copiarPivosFora() {
+  const lista = document.querySelectorAll('#lista-pivos-fora div');
+  const nomes = Array.from(lista).map(div => div.textContent.replace('❌ ', '')).join('\n');
+
+  navigator.clipboard.writeText(nomes).then(() => {
+    mostrarMensagem("📋 Lista copiada!", "sucesso");
+  });
+}
+
+  document.getElementById("toggle-repetidoras").addEventListener("click", () => {
+    const painel = document.getElementById("painel-repetidoras");
+    painel.classList.toggle("hidden");
+
+    if (!painel.classList.contains("hidden")) {
+      posicionarPainelRepetidoras();
+    }
+  });
+
+  function reposicionarPaineisLaterais() {
+  const dados = document.getElementById("painel-dados");
+  const repetidoras = document.getElementById("painel-repetidoras");
+
+  const padding = 8;
+  const topoBase = 80;
+
+  // Começa do topo
+  let topoAtual = topoBase;
+
+  // Se o painel de dados estiver visível, posiciona ele primeiro
+  if (!dados.classList.contains("hidden")) {
+    dados.style.position = "absolute";
+    dados.style.right = "16px";
+    dados.style.top = `${topoAtual}px`;
+
+    const altura = dados.offsetHeight;
+    topoAtual += altura + padding;
+  }
+
+  // Se o painel de repetidoras estiver visível, posiciona logo abaixo
+  if (!repetidoras.classList.contains("hidden")) {
+    repetidoras.style.position = "absolute";
+    repetidoras.style.right = "16px";
+    repetidoras.style.top = `${topoAtual}px`;
+  }
+}
+
+
+
 </script>
 </body>
 </html>
