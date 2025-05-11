@@ -286,8 +286,10 @@ async def simular_manual(params: dict):
     imagem_url = data.get("PNG_WGS84")
     bounds = data.get("bounds")
 
-    # 🔽 Salva imagem com nome único por coordenada
-    nome_arquivo = f"repetidora_{params['lat']}_{params['lon']}.png".replace(".", "_")
+    # 🔽 Corrige nome do arquivo com extensão e nome seguro
+    lat_str = str(params["lat"]).replace(".", "_")
+    lon_str = str(params["lon"]).replace(".", "_")
+    nome_arquivo = f"repetidora_{lat_str}_{lon_str}.png"
     caminho_local = f"static/imagens/{nome_arquivo}"
 
     async with httpx.AsyncClient() as client:
@@ -295,7 +297,8 @@ async def simular_manual(params: dict):
         with open(caminho_local, "wb") as f:
             f.write(r.content)
 
-    imagem_local_url = f"/static/imagens/{nome_arquivo}"
+    # 🔁 URL final acessível via frontend (Netlify)
+    imagem_local_url = f"https://projeto-irricontrol.onrender.com/static/imagens/{nome_arquivo}"
 
     # Analisa cobertura com base nos pivôs existentes
     pivos = detectar_pivos_fora(bounds, params.get("pivos_atuais", []))
