@@ -336,6 +336,10 @@ async def reavaliar_pivos(data: dict):
                 bounds = overlay["bounds"]  # [sul, oeste, norte, leste]
                 imagem_path = overlay["imagem"]
 
+                # ✅ Corrige se veio como URL
+                if imagem_path.startswith("http"):
+                    imagem_path = imagem_path.replace("https://projeto-irricontrol.onrender.com/", "")
+
                 try:
                     img = Image.open(imagem_path).convert("RGBA")
                     largura, altura = img.size
