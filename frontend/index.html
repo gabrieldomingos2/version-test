@@ -4,9 +4,15 @@
   <meta charset="UTF-8" />
   <title>Simulador de Sinal - Irricontrol</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- TailwindCSS para estilo rápido -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet para mapas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Estilo geral da página -->
   <style>
     html, body, #map {
       height: 100%;
@@ -49,7 +55,7 @@
       z-index: 999;
     }
 
-    /* Estilo futurista dos círculos */
+    /* Efeito pulsante nos círculos vermelhos */
     @keyframes pulseGlow {
       0%   { filter: drop-shadow(0 0 4px rgba(153, 0, 0, 0.7)); }
       50%  { filter: drop-shadow(0 0 14px rgba(153, 0, 0, 1)); }
@@ -63,48 +69,45 @@
       animation: pulseGlow 1.6s infinite;
       transition: filter 0.3s ease;
     }
-.label-pivo {
-  color: white;
-  font-size: 0.75rem;
-  font-weight: bold;
-  text-shadow: 0 0 3px black;
-  pointer-events: none;
-}
 
+    .label-pivo {
+      color: white;
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-shadow: 0 0 3px black;
+      pointer-events: none;
+    }
 
-.popup-glass {
-  backdrop-filter: blur(8px);
-  background: rgba(255, 255, 255, 0.7);
-  padding: 6px 10px;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 0.75rem;
-  color: #111;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
+    .popup-glass {
+      backdrop-filter: blur(8px);
+      background: rgba(255, 255, 255, 0.7);
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      color: #111;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
 
+    .leaflet-popup-content-wrapper {
+      background: transparent;
+      box-shadow: none;
+      border-radius: 0;
+      padding: 0;
+    }
 
-.leaflet-popup-content-wrapper {
-  background: transparent;
-  box-shadow: none;
-  border-radius: 0;
-  padding: 0;
-}
-
-.leaflet-popup-tip-container {
-  display: none;
-}
-
-  
+    .leaflet-popup-tip-container {
+      display: none;
+    }
   </style>
 </head>
 
 <body class="bg-gray-900 text-white overflow-hidden">
 
-  <!-- Botão de abrir/fechar painel de dados -->
+  <!-- Botão para abrir o painel de dados -->
   <button id="toggle-painel" class="glass-button absolute top-4 right-4 z-[9999]">🧾</button>
 
-  <!-- Painel de dados da simulação -->
+  <!-- Painel lateral com dados do estudo -->
   <div id="painel-dados" class="absolute top-20 right-0 bg-black bg-opacity-60 p-4 rounded-l-xl shadow-xl w-64 z-[9998] hidden">
     <h2 class="text-lg font-bold mb-2">📊 Dados da Simulação</h2>
     <p id="total-pivos">Pivôs: --</p>
@@ -113,38 +116,38 @@
     <p id="altura-receiver-info">Altura receiver: -- m</p>
   </div>
 
-  <!-- Painel lateral com lista de repetidoras -->
+  <!-- Painel lateral de repetidoras adicionadas -->
   <div id="painel-repetidoras" class="absolute top-4 right-72 bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-60 z-[9998] hidden">
     <h2 class="text-lg font-bold mb-2 text-green-300">📍 Repetidoras</h2>
     <div id="lista-repetidoras" class="space-y-2 text-sm"></div>
   </div>
 
-  <!-- Título centralizado -->
+  <!-- Título central no topo -->
   <div class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 px-6 py-2 rounded-xl shadow-xl top-controls">
     <h1 class="text-2xl font-bold text-green-400 text-center">📡 Simulador de Cobertura de Sinal</h1>
   </div>
 
-  <!-- Controles principais à esquerda -->
-<div class="absolute top-20 left-4 flex flex-col gap-3 top-controls">
-  <form id="formulario" enctype="multipart/form-data" class="flex flex-col gap-2">
-    <label for="arquivo" class="glass-button w-56 cursor-pointer text-sm bg-white bg-opacity-5 hover:bg-opacity-10 text-center flex justify-center">
-  <span class="truncate max-w-full" id="nome-arquivo">📂 Escolher arquivo</span>
-</label>
-    <input type="file" id="arquivo" accept=".kmz" required class="hidden" />
+  <!-- Controles principais (formulário e botões) à esquerda -->
+  <div class="absolute top-20 left-4 flex flex-col gap-3 top-controls">
+    <form id="formulario" enctype="multipart/form-data" class="flex flex-col gap-2">
+      <label for="arquivo" class="glass-button w-56 cursor-pointer text-sm bg-white bg-opacity-5 hover:bg-opacity-10 text-center flex justify-center">
+        <span class="truncate max-w-full" id="nome-arquivo">📂 Escolher arquivo</span>
+      </label>
+      <input type="file" id="arquivo" accept=".kmz" required class="hidden" />
+      <button type="submit" class="glass-button bg-green-700 hover:bg-green-800 w-56">📁 Carregar KMZ</button>
+    </form>
 
-    <button type="submit" class="glass-button bg-green-700 hover:bg-green-800 w-56">📁 Carregar KMZ</button>
-  </form>
+    <button id="simular-btn" class="glass-button bg-blue-600 hover:bg-blue-700 hidden w-56">📶 Rodar Estudo de Sinal</button>
+    <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm w-56">🔄 Resetar</button>
+  </div>
 
-  <button id="simular-btn" class="glass-button bg-blue-600 hover:bg-blue-700 hidden w-56">📶 Rodar Estudo de Sinal</button>
-  <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm w-56">🔄 Resetar</button>
-</div>
+  <!-- Botão para alternar legenda -->
+  <button id="toggle-legenda" class="glass-button absolute top-4 right-52 z-[9999]">🏷️</button>
 
-<!-- Botão flutuante para alternar legenda -->
-<button id="toggle-legenda" class="glass-button absolute top-4 right-52 z-[9999]">🏷️</button>
+  <!-- Botão para abrir painel de repetidoras -->
+  <button onclick="document.getElementById('painel-repetidoras').classList.toggle('hidden')" class="glass-button absolute top-4 right-28 z-[9999]">📍</button>
 
-
-
-  <!-- Mensagem flutuante -->
+  <!-- Mensagem temporária -->
   <div id="mensagem" class="hidden absolute bottom-16 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg text-center font-semibold z-50"></div>
 
   <!-- Loader de carregamento -->
@@ -156,7 +159,7 @@
     <span class="mt-4 text-lg font-bold text-green-300">Processando...</span>
   </div>
 
-    <!-- Painel flutuante de repetidora -->
+  <!-- Painel flutuante para configurar uma repetidora manual -->
   <div id="painel-repetidora" class="bg-black bg-opacity-60 p-3 rounded-xl shadow-lg w-56 absolute left-4 top-64 z-[9999] hidden">
     <div class="flex justify-between items-center mb-2">
       <h2 class="font-bold text-green-300">➕ Repetidora</h2>
@@ -168,18 +171,13 @@
 
     <label class="text-sm mb-1 block">Altura receiver (m):</label>
     <input id="altura-receiver-rep" type="number" value="3" class="w-full px-2 py-1 rounded bg-gray-800 text-white mb-3" />
-<button id="confirmar-repetidora"
-  class="glass-button bg-blue-600 hover:bg-blue-700 w-40 mx-auto block text-sm px-3 py-1 shadow-md backdrop-blur-md">
-  📡 Simular
-</button>
 
+    <button id="confirmar-repetidora" class="glass-button bg-blue-600 hover:bg-blue-700 w-40 mx-auto block text-sm px-3 py-1 shadow-md backdrop-blur-md">
+      📡 Simular
+    </button>
   </div>
 
-  <!-- Botão para abrir painel de repetidoras -->
-  <button onclick="document.getElementById('painel-repetidoras').classList.toggle('hidden')" 
-          class="glass-button absolute top-4 right-28 z-[9999]">📍</button>
-
-            <!-- Container do mapa -->
+  <!-- Mapa principal do Leaflet -->
   <div id="map"></div>
 
   <!-- Rodapé discreto -->
@@ -187,158 +185,430 @@
     powered by Irricontrol
   </div>
 
-    <script>
-    // Inicializa o mapa no centro do Brasil
-    const map = L.map('map').setView([-15, -55], 5);
+<script>
+  // Inicializa o mapa centralizado no Brasil
+  const map = L.map('map').setView([-15, -55], 5);
 
-    // Camada satélite do Google
-    const satelite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-      maxZoom: 20,
-      subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-    }).addTo(map);
+  // Camada satélite (Google)
+  const satelite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+    maxZoom: 20,
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+  }).addTo(map);
 
-    // Variáveis globais
-    let antenaGlobal = null;
-    let marcadorAntena = null;
-    let marcadorPosicionamento = null;
-    let marcadoresPivos = [];
-    let circulosPivos = [];
-    let pivotsMap = {};
-    let coordenadaClicada = null;
-    let repetidoras = [];
-    let contadorRepetidoras = 0;
-    let idsDisponiveis = [];
-    let pivosOriginais = [];
-    let legendasAtivas = true;
-    let marcadoresLegenda = [];
+  // Variáveis globais
+  let antenaGlobal = null;
+  let marcadorAntena = null;
+  let marcadorPosicionamento = null;
+  let marcadoresPivos = [];
+  let circulosPivos = [];
+  let pivotsMap = {};
+  let coordenadaClicada = null;
+  let repetidoras = [];
+  let contadorRepetidoras = 0;
+  let idsDisponiveis = [];
+  let pivosOriginais = [];
+  let legendasAtivas = true;
+  let marcadoresLegenda = [];
 
+  // Exibe ou oculta o painel de dados
+  document.getElementById("toggle-painel").addEventListener("click", () => {
+    document.getElementById("painel-dados").classList.toggle("hidden");
+  });
 
-    // Alterna painel de dados
-    document.getElementById("toggle-painel").addEventListener("click", () => {
-      document.getElementById("painel-dados").classList.toggle("hidden");
+  // Mostra mensagem temporária (verde ou vermelha)
+  const mostrarMensagem = (texto, tipo = 'sucesso') => {
+    const msg = document.getElementById('mensagem');
+    msg.textContent = texto;
+    msg.classList.remove('hidden', 'bg-red-600', 'bg-green-600');
+    msg.classList.add(tipo === 'sucesso' ? 'bg-green-600' : 'bg-red-600');
+    setTimeout(() => msg.classList.add('hidden'), 4000);
+  };
+
+  // Mostra ou esconde o loader de carregamento
+  const mostrarLoader = (ativo) => {
+    document.getElementById('loader').classList.toggle('hidden', !ativo);
+  };
+
+  // Atualiza o painel lateral com dados da simulação
+  function atualizarPainel(pivos, antena, receiverAltura = 3) {
+    document.getElementById("total-pivos").textContent = `Pivôs: ${pivos.length}`;
+    document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${pivos.filter(p => p.fora).length}`;
+    document.getElementById("altura-antena-info").textContent = `Altura da antena: ${antena.altura} m`;
+    document.getElementById("altura-receiver-info").textContent = `Altura receiver: ${receiverAltura} m`;
+  }
+</script>
+
+<script>
+  // Adiciona repetidora no painel lateral com opção de visualização e remoção
+  function adicionarRepetidoraNoPainel(repetidora) {
+    const container = document.getElementById("lista-repetidoras");
+
+    const item = document.createElement("div");
+    item.className = "flex justify-between items-center bg-gray-800 px-2 py-1 rounded";
+
+    const label = document.createElement("label");
+    label.textContent = `Repetidora ${repetidora.id}`;
+    label.className = "text-white";
+
+    const controls = document.createElement("div");
+    controls.className = "flex gap-2 items-center";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = true;
+    checkbox.className = "form-checkbox text-green-500";
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        repetidora.marker.addTo(map);
+        if (repetidora.overlay) map.addLayer(repetidora.overlay);
+        if (repetidora.label && !map.hasLayer(repetidora.label)) map.addLayer(repetidora.label);
+      } else {
+        map.removeLayer(repetidora.marker);
+        if (repetidora.overlay) map.removeLayer(repetidora.overlay);
+        if (repetidora.label && map.hasLayer(repetidora.label)) map.removeLayer(repetidora.label);
+      }
     });
 
-    // Mostra mensagem temporária (verde ou vermelha)
-    const mostrarMensagem = (texto, tipo = 'sucesso') => {
-      const msg = document.getElementById('mensagem');
-      msg.textContent = texto;
-      msg.classList.remove('hidden', 'bg-red-600', 'bg-green-600');
-      msg.classList.add(tipo === 'sucesso' ? 'bg-green-600' : 'bg-red-600');
-      setTimeout(() => msg.classList.add('hidden'), 4000);
-    };
+    const removerBtn = document.createElement("button");
+    removerBtn.innerHTML = "❌";
+    removerBtn.className = "text-red-400 hover:text-red-600 font-bold";
+    removerBtn.addEventListener("click", () => {
+      map.removeLayer(repetidora.marker);
+      if (repetidora.overlay && map.hasLayer(repetidora.overlay)) map.removeLayer(repetidora.overlay);
+      if (repetidora.label && map.hasLayer(repetidora.label)) map.removeLayer(repetidora.label);
+      container.removeChild(item);
+      idsDisponiveis.push(repetidora.id);
+      idsDisponiveis.sort((a, b) => a - b);
+      repetidoras = repetidoras.filter(r => r.id !== repetidora.id);
+    });
 
-    // Exibe ou esconde o loader de carregamento
-    const mostrarLoader = (ativo) => {
-      document.getElementById('loader').classList.toggle('hidden', !ativo);
-    };
-
-        // Atualiza os dados no painel lateral
-    function atualizarPainel(pivos, antena, receiverAltura = 3) {
-      document.getElementById("total-pivos").textContent = `Pivôs: ${pivos.length}`;
-      document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${pivos.filter(p => p.fora).length}`;
-      document.getElementById("altura-antena-info").textContent = `Altura da antena: ${antena.altura} m`;
-      document.getElementById("altura-receiver-info").textContent = `Altura receiver: ${receiverAltura} m`;
-    }
-
-    // Adiciona repetidora no painel lateral com controle de visualização
-    function adicionarRepetidoraNoPainel(repetidora) {
-  const container = document.getElementById("lista-repetidoras");
-
-  const item = document.createElement("div");
-  item.className = "flex justify-between items-center bg-gray-800 px-2 py-1 rounded";
-
-  const label = document.createElement("label");
-  label.textContent = `Repetidora ${repetidora.id}`;
-  label.className = "text-white";
-
-  const controls = document.createElement("div");
-  controls.className = "flex gap-2 items-center";
-
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.checked = true;
-  checkbox.className = "form-checkbox text-green-500";
-  checkbox.addEventListener("change", () => {
-  if (checkbox.checked) {
-    repetidora.marker.addTo(map);
-    if (repetidora.overlay) map.addLayer(repetidora.overlay);
-    if (repetidora.label && !map.hasLayer(repetidora.label)) {
-      map.addLayer(repetidora.label);
-    }
-  } else {
-    map.removeLayer(repetidora.marker);
-    if (repetidora.overlay) map.removeLayer(repetidora.overlay);
-    if (repetidora.label && map.hasLayer(repetidora.label)) {
-      map.removeLayer(repetidora.label);
-    }
-  }
-});
-
-  const removerBtn = document.createElement("button");
-removerBtn.innerHTML = "❌";
-removerBtn.className = "text-red-400 hover:text-red-600 font-bold";
-
-removerBtn.addEventListener("click", async () => {
-  map.removeLayer(repetidora.marker);
-
-  if (repetidora.overlay && map.hasLayer(repetidora.overlay)) {
-    map.removeLayer(repetidora.overlay);
+    controls.appendChild(checkbox);
+    controls.appendChild(removerBtn);
+    item.appendChild(label);
+    item.appendChild(controls);
+    container.appendChild(item);
   }
 
-  if (repetidora.label && map.hasLayer(repetidora.label)) {
-    map.removeLayer(repetidora.label);
-  }
+  // Evento de envio do formulário KMZ
+  document.getElementById('formulario').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    mostrarLoader(true);
 
-  container.removeChild(item);
-  idsDisponiveis.push(repetidora.id);
-  idsDisponiveis.sort((a, b) => a - b);
-  repetidoras = repetidoras.filter(r => r.id !== repetidora.id);
+    const fileInput = document.getElementById('arquivo');
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
 
-  mostrarLoader(true);
-
-  pivosOriginais = Object.entries(pivotsMap).map(([nome, marcador]) => ({
-    nome,
-    lat: marcador.getLatLng().lat,
-    lon: marcador.getLatLng().lng,
-  }));
-
-  pivotsMap = {};
-  marcadoresPivos.forEach(m => map.removeLayer(m));
-  marcadoresPivos = [];
-
-  const cobertura = {};
-  for (const p of pivosOriginais) cobertura[p.nome] = false;
-
-  if (antenaGlobal) {
-    const res = await fetch("https://projeto-irricontrol.onrender.com/simular_manual", {
+    const res = await fetch("https://projeto-irricontrol.onrender.com/processar_kmz", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lat: antenaGlobal.lat,
-        lon: antenaGlobal.lon,
-        altura: antenaGlobal.altura,
-        altura_receiver: 3,
-        pivos_atuais: pivosOriginais.map(p => ({ ...p, fora: true }))
-      })
+      body: formData
     });
 
     const data = await res.json();
-    if (data.pivos) {
-      data.pivos.forEach(pivo => {
-        if (!pivo.fora) cobertura[pivo.nome] = true;
-      });
-    }
-  }
+    mostrarLoader(false);
 
-  for (const rep of repetidoras) {
-    if (!map.hasLayer(rep.marker)) continue;
+    if (data.erro) {
+      mostrarMensagem(data.erro, "erro");
+      return;
+    }
+
+    antenaGlobal = data.antena;
+
+    // Remove marcadores antigos
+    if (marcadorAntena) map.removeLayer(marcadorAntena);
+    Object.values(pivotsMap).forEach(m => map.removeLayer(m));
+    circulosPivos.forEach(c => map.removeLayer(c));
+
+    marcadoresPivos = [];
+    circulosPivos = [];
+    pivotsMap = {};
+
+    // Ícone da antena
+    const antenaIcon = L.icon({
+      iconUrl: "https://projeto-irricontrol.onrender.com/icone-torre",
+      iconSize: [40, 40],
+      iconAnchor: [20, 40],
+      popupAnchor: [0, -40]
+    });
+
+    marcadorAntena = L.marker([antenaGlobal.lat, antenaGlobal.lon], { icon: antenaIcon })
+      .addTo(map)
+      .bindPopup(`<div class="popup-glass">📡 ${antenaGlobal.nome}</div>`, { offset: [0, 30] });
+
+    const labelAntena = L.marker([antenaGlobal.lat, antenaGlobal.lon], {
+      icon: L.divIcon({
+        className: 'label-pivo',
+        html: antenaGlobal.nome || 'Antena',
+        iconSize: [80, 20],
+        iconAnchor: [40, -10]
+      })
+    }).addTo(map);
+    marcadoresLegenda.push(labelAntena);
+
+    // Desenha pivôs no mapa
+    data.pivos.forEach(pivo => {
+      const marker = L.circleMarker([pivo.lat, pivo.lon], {
+        radius: 6,
+        color: 'red',
+        fillColor: 'red',
+        fillOpacity: 0.6
+      }).addTo(map).bindPopup(`<div class="popup-glass">✅ ${pivo.nome}</div>`);
+
+      marcadoresPivos.push(marker);
+      pivotsMap[pivo.nome] = marker;
+
+      const label = L.marker([pivo.lat, pivo.lon], {
+        icon: L.divIcon({
+          className: 'label-pivo',
+          html: pivo.nome,
+          iconSize: [60, 20],
+          iconAnchor: [30, -10]
+        })
+      }).addTo(map);
+      marcadoresLegenda.push(label);
+    });
+
+    // Desenha círculos de cobertura, se existirem
+    if (data.ciclos) {
+      circulosPivos = data.ciclos.map(circulo =>
+        L.polygon(circulo.coordenadas, {
+          color: '#ff3b3b',
+          weight: 4,
+          opacity: 0.95,
+          fillOpacity: 0,
+          className: 'circulo-futurista'
+        }).addTo(map)
+      );
+    }
+
+    // Ajusta o zoom do mapa
+    map.fitBounds([[antenaGlobal.lat, antenaGlobal.lon], ...data.pivos.map(p => [p.lat, p.lon])]);
+
+    mostrarMensagem("✅ KMZ carregado.");
+    document.getElementById("simular-btn").classList.remove("hidden");
+  });
+</script>
+<script>
+  document.getElementById("simular-btn").addEventListener("click", async () => {
+    if (!antenaGlobal) return;
+
+    mostrarLoader(true);
+
+    const res = await fetch("https://projeto-irricontrol.onrender.com/simular_sinal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(antenaGlobal)
+    });
+
+    const data = await res.json();
+    mostrarLoader(false);
+
+    if (data.imagem_salva && data.bounds) {
+      const [south, west, north, east] = data.bounds;
+      const bounds = [[south, west], [north, east]];
+
+      // Remove overlay anterior
+      if (antenaGlobal.overlay) {
+        map.removeLayer(antenaGlobal.overlay);
+      }
+
+      // Adiciona nova imagem de sinal
+      antenaGlobal.overlay = L.imageOverlay(
+        data.imagem_salva + '?t=' + Date.now(),
+        bounds
+      ).addTo(map);
+
+      map.fitBounds(bounds);
+
+      // Limpa pivôs anteriores do mapa
+      marcadoresPivos.forEach(m => {
+        if (map.hasLayer(m)) map.removeLayer(m);
+      });
+      marcadoresPivos = [];
+      pivotsMap = {};
+
+      // Redesenha pivôs com base no resultado da API
+      data.pivos.forEach(pivo => {
+        const cor = pivo.fora ? 'red' : 'green';
+
+        const marcador = L.circleMarker([pivo.lat, pivo.lon], {
+          radius: 6,
+          color: cor,
+          fillColor: cor,
+          fillOpacity: 0.6,
+          className: pivo.fora ? 'circulo-futurista' : ''
+        }).addTo(map).bindPopup(
+          `<div class="popup-glass">${pivo.fora ? '❌' : '✅'} ${pivo.nome}</div>`
+        );
+
+        marcadoresPivos.push(marcador);
+        pivotsMap[pivo.nome] = marcador;
+
+        const label = L.marker([pivo.lat, pivo.lon], {
+          icon: L.divIcon({
+            className: 'label-pivo',
+            html: pivo.nome,
+            iconSize: [60, 20],
+            iconAnchor: [30, -10]
+          })
+        }).addTo(map);
+        marcadoresLegenda.push(label);
+      });
+
+      atualizarPainel(data.pivos, antenaGlobal);
+      mostrarMensagem("📡 Estudo de sinal concluído com sucesso.");
+    } else {
+      mostrarMensagem("❌ Falha na simulação.", "erro");
+    }
+  });
+</script>
+
+<script>
+  document.getElementById("resetar-btn").addEventListener("click", () => {
+    // Remove marcador da antena
+    if (marcadorAntena && map.hasLayer(marcadorAntena)) {
+      map.removeLayer(marcadorAntena);
+    }
+
+    // Remove marcador de posicionamento (usado ao clicar no mapa)
+    if (marcadorPosicionamento && map.hasLayer(marcadorPosicionamento)) {
+      map.removeLayer(marcadorPosicionamento);
+    }
+
+    // Remove marcadores de pivôs e os circulares
+    marcadoresPivos.forEach(m => map.removeLayer(m));
+    Object.values(pivotsMap).forEach(m => map.removeLayer(m));
+    circulosPivos.forEach(c => map.removeLayer(c));
+
+    // Remove overlays de repetidoras e marcador da imagem da antena
+    repetidoras.forEach(r => {
+      if (r.marker && map.hasLayer(r.marker)) map.removeLayer(r.marker);
+      if (r.overlay && map.hasLayer(r.overlay)) map.removeLayer(r.overlay);
+    });
+
+    if (antenaGlobal?.overlay && map.hasLayer(antenaGlobal.overlay)) {
+      map.removeLayer(antenaGlobal.overlay);
+    }
+
+    // Remove labels
+    marcadoresLegenda.forEach(m => map.removeLayer(m));
+
+    // Reseta variáveis globais
+    antenaGlobal = null;
+    marcadorAntena = null;
+    marcadorPosicionamento = null;
+    marcadoresPivos = [];
+    circulosPivos = [];
+    pivotsMap = {};
+    repetidoras = [];
+    contadorRepetidoras = 0;
+    idsDisponiveis = [];
+    coordenadaClicada = null;
+    marcadoresLegenda = [];
+
+    // Esconde botões/painéis
+    document.getElementById("simular-btn").classList.add("hidden");
+    document.getElementById("lista-repetidoras").innerHTML = "";
+    document.getElementById("painel-repetidora").classList.add("hidden");
+    document.getElementById("painel-dados").classList.add("hidden");
+    document.getElementById("painel-repetidoras").classList.add("hidden");
+
+    // Volta pro zoom original
+    map.setView([-15, -55], 5);
+  });
+</script>
+<script>
+  // Clique no mapa → posiciona marcador e abre painel de repetidora
+  map.on("click", function (e) {
+    // Evita clique durante carregamento
+    if (!document.getElementById('loader').classList.contains('hidden')) return;
+
+    coordenadaClicada = e.latlng;
+
+    const iconePosicionamento = L.icon({
+      iconUrl: "https://projeto-irricontrol.onrender.com/icone-torre",
+      iconSize: [35, 35],
+      iconAnchor: [17, 35],
+      popupAnchor: [0, -30]
+    });
+
+    if (!marcadorPosicionamento) {
+      // Cria novo marcador de repetidora
+      marcadorPosicionamento = L.marker(coordenadaClicada, {
+        icon: iconePosicionamento,
+        interactive: false,
+        opacity: 0.6
+      }).addTo(map);
+    } else {
+      // Move o marcador existente
+      marcadorPosicionamento.setLatLng(coordenadaClicada);
+    }
+
+    // Mostra painel lateral de repetidora
+    document.getElementById("painel-repetidora").classList.remove("hidden");
+  });
+</script>
+
+<script>
+  document.getElementById("confirmar-repetidora").addEventListener("click", async () => {
+    if (!coordenadaClicada) return;
+
+    const alturaAntena = parseFloat(document.getElementById("altura-antena-rep").value);
+    const alturaReceiver = parseFloat(document.getElementById("altura-receiver-rep").value);
+
+    const repetidoraIcon = L.icon({
+      iconUrl: "https://projeto-irricontrol.onrender.com/icone-torre",
+      iconSize: [40, 40],
+      iconAnchor: [20, 40],
+      popupAnchor: [0, -40]
+    });
+
+    const id = idsDisponiveis.length > 0 ? idsDisponiveis.shift() : ++contadorRepetidoras;
+
+    const novaRepetidora = L.marker(coordenadaClicada, { icon: repetidoraIcon })
+      .addTo(map)
+      .bindPopup(`<div class="popup-glass">📡 Repetidora ${id}</div>`);
+
+    const labelRepetidora = L.marker([coordenadaClicada.lat, coordenadaClicada.lng], {
+      icon: L.divIcon({
+        className: 'label-pivo',
+        html: `Repetidora ${id}`,
+        iconSize: [80, 20],
+        iconAnchor: [40, -10]
+      })
+    }).addTo(map);
+    marcadoresLegenda.push(labelRepetidora);
+
+    const repetidoraObj = {
+      id,
+      marker: novaRepetidora,
+      overlay: null,
+      altura: alturaAntena,
+      altura_receiver: alturaReceiver,
+      label: labelRepetidora
+    };
+
+    repetidoras.push(repetidoraObj);
+    adicionarRepetidoraNoPainel(repetidoraObj);
+
+    // Remove marcador temporário
+    if (marcadorPosicionamento) {
+      map.removeLayer(marcadorPosicionamento);
+      marcadorPosicionamento = null;
+    }
+
+    mostrarLoader(true);
 
     const payload = {
-      lat: rep.marker.getLatLng().lat,
-      lon: rep.marker.getLatLng().lng,
-      altura: rep.altura,
-      altura_receiver: rep.altura_receiver,
-      pivos_atuais: pivosOriginais.map(p => ({ ...p, fora: true }))
+      lat: coordenadaClicada.lat,
+      lon: coordenadaClicada.lng,
+      altura: alturaAntena,
+      altura_receiver: alturaReceiver,
+      pivos_atuais: Object.entries(pivotsMap).map(([nome, marcador]) => ({
+        nome,
+        lat: marcador.getLatLng().lat,
+        lon: marcador.getLatLng().lng,
+        fora: marcador.options.fillColor === 'red'
+      }))
     };
 
     const res = await fetch("https://projeto-irricontrol.onrender.com/simular_manual", {
@@ -348,471 +618,81 @@ removerBtn.addEventListener("click", async () => {
     });
 
     const data = await res.json();
+    mostrarLoader(false);
+
+    if (data.imagem_salva && data.bounds) {
+      const [south, west, north, east] = data.bounds;
+      const bounds = [[south, west], [north, east]];
+
+      const overlay = L.imageOverlay(
+        "https://projeto-irricontrol.onrender.com" + data.imagem_salva + '?t=' + Date.now(),
+        bounds
+      ).addTo(map);
+
+      repetidoraObj.overlay = overlay;
+    }
+
     if (data.pivos) {
       data.pivos.forEach(pivo => {
-        if (!pivo.fora) cobertura[pivo.nome] = true;
-      });
-    }
-  }
+        if (pivotsMap[pivo.nome]) {
+          const marcadorAntigo = pivotsMap[pivo.nome];
+          marcadorAntigo.remove();
 
-  pivosOriginais.forEach(pivo => {
-    const fora = !cobertura[pivo.nome];
-    const cor = fora ? 'red' : 'green';
+          const corFinal = pivo.fora ? 'red' : 'green';
 
-    const marcador = L.circleMarker([pivo.lat, pivo.lon], {
-      radius: 6,
-      color: cor,
-      fillColor: cor,
-      fillOpacity: 0.6,
-      className: fora ? 'circulo-futurista' : ''
-    }).addTo(map).bindPopup(`${fora ? '❌' : '✅'} ${pivo.nome}`);
-
-    pivotsMap[pivo.nome] = marcador;
-    marcadoresPivos.push(marcador);
-  });
-
-  document.getElementById("total-pivos").textContent = `Pivôs: ${Object.keys(pivotsMap).length}`;
-  document.getElementById("fora-cobertura").textContent =
-    `Fora da cobertura: ${Object.values(pivotsMap).filter(m => m.options.fillColor === 'red').length}`;
-
-  mostrarLoader(false);
-});
-
-
-  controls.appendChild(checkbox);
-  controls.appendChild(removerBtn);
-  item.appendChild(label);
-  item.appendChild(controls);
-  container.appendChild(item);
-}
-
-            // 🎯 Upload do KMZ e renderização dos dados
-      document.getElementById('formulario').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        mostrarLoader(true);
-
-        const fileInput = document.getElementById('arquivo');
-        const formData = new FormData();
-        formData.append("file", fileInput.files[0]);
-
-        const res = await fetch("https://projeto-irricontrol.onrender.com/processar_kmz", {
-          method: "POST",
-          body: formData
-        });
-
-        const data = await res.json();
-        mostrarLoader(false);
-
-        if (data.erro) {
-          mostrarMensagem(data.erro, "erro");
-          return;
-        }
-
-        antenaGlobal = data.antena;
-
-        // Limpa elementos anteriores do mapa
-        if (marcadorAntena) map.removeLayer(marcadorAntena);
-
-// Remove marcadores dos pivôs
-Object.values(pivotsMap).forEach(marker => {
-  if (map.hasLayer(marker)) map.removeLayer(marker);
-});
-
-// Remove círculos de pivôs
-circulosPivos.forEach(c => map.removeLayer(c));
-
-// Limpa estruturas
-marcadoresPivos = [];
-circulosPivos = [];
-pivotsMap = {};
-
-
-        // Ícone da antena
-        const antenaIcon = L.icon({
-          iconUrl: "https://projeto-irricontrol.onrender.com/icone-torre",
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-          popupAnchor: [0, -40]
-        });
-
-        // Adiciona a antena no mapa
-        marcadorAntena = L.marker([antenaGlobal.lat, antenaGlobal.lon], { icon: antenaIcon })
-  .addTo(map)
-  .bindPopup(`<div class="popup-glass">📡 ${antenaGlobal.nome}</div>`, {
-    offset: [0, 30]
-  });
-
-          const labelAntena = L.marker([antenaGlobal.lat, antenaGlobal.lon], {
-  icon: L.divIcon({
-    className: 'label-pivo',
-    html: antenaGlobal.nome || 'Antena',
-    iconSize: [80, 20],
-    iconAnchor: [40, -10]
-  })
-}).addTo(map);
-marcadoresLegenda.push(labelAntena);
-
-
-        // Adiciona os pivôs no mapa
-        data.pivos.forEach(pivo => {
-  const marker = L.circleMarker([pivo.lat, pivo.lon], {
-    radius: 6,
-    color: 'red',
-    fillColor: 'red',
-    fillOpacity: 0.6
-  }).addTo(map).bindPopup(`✅ ${pivo.nome}`);
-
-  marcadoresPivos.push(marker);
-  pivotsMap[pivo.nome] = marker;
-
-  // ✅ Aqui entra a legenda, no mesmo loop
-  const label = L.marker([pivo.lat, pivo.lon], {
-    icon: L.divIcon({
-      className: 'label-pivo',
-      html: pivo.nome,
-      iconSize: [60, 20],
-      iconAnchor: [30, -10]
-    })
-  }).addTo(map);
-
-  marcadoresLegenda.push(label);
-       });
-
-        // Desenha os círculos de cobertura dos pivôs
-        if (data.ciclos) {
-          circulosPivos = data.ciclos.map(circulo =>
-            L.polygon(circulo.coordenadas, {
-              color: '#ff3b3b',
-              weight: 4,
-              opacity: 0.95,
-              fillOpacity: 0,
-              className: 'circulo-futurista'
-            }).addTo(map)
+          const novoMarcador = L.circleMarker([pivo.lat, pivo.lon], {
+            radius: 6,
+            color: corFinal,
+            fillColor: corFinal,
+            fillOpacity: 0.6,
+            className: pivo.fora ? 'circulo-futurista' : ''
+          }).addTo(map).bindPopup(
+            `<div class="popup-glass">${pivo.fora ? '❌' : '✅'} ${pivo.nome}</div>`
           );
-        }
 
-        // Ajusta a visualização do mapa
-        map.fitBounds([[antenaGlobal.lat, antenaGlobal.lon], ...data.pivos.map(p => [p.lat, p.lon])]);
+          pivotsMap[pivo.nome] = novoMarcador;
 
-        mostrarMensagem("✅ KMZ carregado.");
-        document.getElementById("simular-btn").classList.remove("hidden");
-      });
-
-            // 🛰 Roda o estudo de sinal com a antena principal
-      document.getElementById("simular-btn").addEventListener("click", async () => {
-        if (!antenaGlobal) return;
-
-        mostrarLoader(true);
-
-        const res = await fetch("https://projeto-irricontrol.onrender.com/simular_sinal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(antenaGlobal)
-        });
-
-        const data = await res.json();
-        mostrarLoader(false);
-
-        if (data.imagem_salva && data.bounds) {
-          const [south, west, north, east] = data.bounds;
-          const bounds = [[south, west], [north, east]];
-
-          // Remove imagem anterior, se existir
-          if (antenaGlobal.overlay) {
-            map.removeLayer(antenaGlobal.overlay);
-          }
-
-          // Adiciona nova imagem de cobertura ao mapa
-          antenaGlobal.overlay = L.imageOverlay(
-            data.imagem_salva + '?t=' + Date.now(), // previne cache
-            bounds
-          ).addTo(map);
-
-          map.fitBounds(bounds);
-
-          // Remove pivôs anteriores do mapa
-          marcadoresPivos.forEach(m => {
-            if (map.hasLayer(m)) map.removeLayer(m);
-          });
-          marcadoresPivos = [];
-          pivotsMap = {};
-
-          // Redesenha pivôs com base no novo resultado
-          data.pivos.forEach(pivo => {
-  const cor = pivo.fora ? 'red' : 'green';
-
-  const marcador = L.circleMarker([pivo.lat, pivo.lon], {
-  radius: 6,
-  color: cor,
-  fillColor: cor,
-  fillOpacity: 0.6,
-  className: pivo.fora ? 'circulo-futurista' : ''
-}).addTo(map).bindPopup(
-  `<div class="popup-glass">${pivo.fora ? '❌' : '✅'} ${pivo.nome}</div>`
-);
-
-  marcadoresPivos.push(marcador);
-  pivotsMap[pivo.nome] = marcador;
-
-  // ✅ INSIRA AQUI dentro do loop:
-  const label = L.marker([pivo.lat, pivo.lon], {
-    icon: L.divIcon({
-      className: 'label-pivo',
-      html: pivo.nome,
-      iconSize: [60, 20],
-      iconAnchor: [30, -10]
-    })
-  }).addTo(map);
-  marcadoresLegenda.push(label);
-});
-          atualizarPainel(data.pivos, antenaGlobal);
-          mostrarMensagem("📡 Estudo de sinal concluído com sucesso.");
-        } else {
-          mostrarMensagem("❌ Falha na simulação.", "erro");
-        }
-      });
-
-            // 🔄 Botão de reset – limpa tudo
-      document.getElementById("resetar-btn").addEventListener("click", () => {
-  // Remove marcador da antena
-  if (marcadorAntena && map.hasLayer(marcadorAntena)) {
-    map.removeLayer(marcadorAntena);
-  }
-
-  // Remove marcador de posicionamento
-  if (marcadorPosicionamento && map.hasLayer(marcadorPosicionamento)) {
-    map.removeLayer(marcadorPosicionamento);
-  }
-
-  // Remove marcadores de pivôs redesenhados
-  marcadoresPivos.forEach(m => {
-    if (map.hasLayer(m)) map.removeLayer(m);
-  });
-
-  // Remove marcadores criados dinamicamente com pivotsMap (pode estar duplicado!)
-  Object.values(pivotsMap).forEach(m => {
-    if (map.hasLayer(m)) map.removeLayer(m);
-  });
-
-  // Remove círculos ao redor dos pivôs
-    circulosPivos.forEach(c => {
-    if (map.hasLayer(c)) map.removeLayer(c);
-  });
-    circulosPivos = [];
-
-  // Remove overlays e marcadores de todas as repetidoras
-  repetidoras.forEach(r => {
-    if (r.marker && map.hasLayer(r.marker)) map.removeLayer(r.marker);
-    if (r.overlay && map.hasLayer(r.overlay)) map.removeLayer(r.overlay);
-  });
-
-  // Remove overlay da antena principal (imagem do estudo)
-  if (antenaGlobal?.overlay && map.hasLayer(antenaGlobal.overlay)) {
-    map.removeLayer(antenaGlobal.overlay);
-  }
-
-  // Reset de variáveis
-  antenaGlobal = null;
-  marcadorAntena = null;
-  marcadorPosicionamento = null;
-  marcadoresPivos = [];
-  circulosPivos = [];
-  pivotsMap = {};
-  repetidoras = [];
-  contadorRepetidoras = 0;
-  coordenadaClicada = null;
-
-  // Reset visual
-  document.getElementById("simular-btn").classList.add("hidden");
-  document.getElementById("lista-repetidoras").innerHTML = "";
-  document.getElementById("painel-repetidora").classList.add("hidden");
-
-  // Fecha os painéis de dados e repetidoras
-  document.getElementById("painel-dados").classList.add("hidden");
-  document.getElementById("painel-repetidoras").classList.add("hidden");
-
-  marcadoresLegenda.forEach(m => {
-  if (map.hasLayer(m)) map.removeLayer(m);
-});
-marcadoresLegenda = [];
-
-
-  // Volta ao zoom padrão
-  map.setView([-15, -55], 5);
-});
-
-            // 🖱️ Clique no mapa para posicionar uma repetidora
-      map.on("click", function (e) {
-  if (!document.getElementById('loader').classList.contains('hidden')) return;
-        coordenadaClicada = e.latlng;
-
-        const iconePosicionamento = L.icon({
-          iconUrl: "https://projeto-irricontrol.onrender.com/icone-torre",
-          iconSize: [35, 35],
-          iconAnchor: [17, 35],
-          popupAnchor: [0, -30]
-        });
-
-        // Se já existe marcador de posicionamento, move. Se não, cria.
-        if (!marcadorPosicionamento) {
-          marcadorPosicionamento = L.marker(coordenadaClicada, {
-            icon: iconePosicionamento,
-            interactive: false,
-            opacity: 0.6
+          const label = L.marker([pivo.lat, pivo.lon], {
+            icon: L.divIcon({
+              className: 'label-pivo',
+              html: pivo.nome,
+              iconSize: [60, 20],
+              iconAnchor: [30, -10]
+            })
           }).addTo(map);
-        } else {
-          marcadorPosicionamento.setLatLng(coordenadaClicada);
-        }
-
-        // Abre o painel de configuração da repetidora
-        document.getElementById("painel-repetidora").classList.remove("hidden");
-      });
-
-            // 🚀 Confirma e simula repetidora manual
-      document.getElementById("confirmar-repetidora").addEventListener("click", async () => {
-        if (!coordenadaClicada) return;
-
-        const alturaAntena = parseFloat(document.getElementById("altura-antena-rep").value);
-        const alturaReceiver = parseFloat(document.getElementById("altura-receiver-rep").value);
-
-        const repetidoraIcon = L.icon({
-          iconUrl: "https://projeto-irricontrol.onrender.com/icone-torre",
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-          popupAnchor: [0, -40]
-        });
-
-        const id = idsDisponiveis.length > 0 ? idsDisponiveis.shift() : ++contadorRepetidoras;
-
-const novaRepetidora = L.marker(coordenadaClicada, { icon: repetidoraIcon })
-  .addTo(map)
-  .bindPopup(`<div class="popup-glass">📡 Repetidora ${id}</div>`);
-
-const labelRepetidora = L.marker([coordenadaClicada.lat, coordenadaClicada.lng], {
-  icon: L.divIcon({
-    className: 'label-pivo',
-    html: `Repetidora ${id}`,
-    iconSize: [80, 20],
-    iconAnchor: [40, -10]
-  })
-}).addTo(map);
-marcadoresLegenda.push(labelRepetidora);
-
-const repetidoraObj = {
-  id,
-  marker: novaRepetidora,
-  overlay: null,
-  altura: alturaAntena,
-  altura_receiver: alturaReceiver,
-  label: labelRepetidora // 👈 adiciona referência para depois remover
-};
-
-        repetidoras.push(repetidoraObj);
-        adicionarRepetidoraNoPainel(repetidoraObj);
-
-        if (marcadorPosicionamento) {
-          map.removeLayer(marcadorPosicionamento);
-          marcadorPosicionamento = null;
-        }
-
-        mostrarLoader(true);
-
-        const payload = {
-          lat: coordenadaClicada.lat,
-          lon: coordenadaClicada.lng,
-          altura: alturaAntena,
-          altura_receiver: alturaReceiver,
-          pivos_atuais: Object.entries(pivotsMap).map(([nome, marcador]) => ({
-            nome,
-            lat: marcador.getLatLng().lat,
-            lon: marcador.getLatLng().lng,
-            fora: marcador.options.fillColor === 'red'
-          }))
-        };
-
-        const res = await fetch("https://projeto-irricontrol.onrender.com/simular_manual", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await res.json();
-        mostrarLoader(false);
-
-        if (data.imagem_salva && data.bounds) {
-          const [south, west, north, east] = data.bounds;
-          const bounds = [[south, west], [north, east]];
-
-          const overlay = L.imageOverlay(
-            "https://projeto-irricontrol.onrender.com" + data.imagem_salva + '?t=' + Date.now(),
-            bounds
-          ).addTo(map);
-
-          repetidoraObj.overlay = overlay;
-        }
-
-        if (data.pivos) {
-          data.pivos.forEach(pivo => {
-  if (pivotsMap[pivo.nome]) {
-    const marcador = pivotsMap[pivo.nome];
-    const corFinal = pivo.fora ? 'red' : 'green';
-
-    marcador.remove();
-
-    const novoMarcador = L.circleMarker([pivo.lat, pivo.lon], {
-      radius: 6,
-      color: corFinal,
-      fillColor: corFinal,
-      fillOpacity: 0.6,
-      className: pivo.fora ? 'circulo-futurista' : ''
-    }).addTo(map).bindPopup(
-  `<div class="popup-glass">${pivo.fora ? '❌' : '✅'} ${pivo.nome}</div>`
-);
-
-    pivotsMap[pivo.nome] = novoMarcador;
-
-    // ✅ Aqui está o label correto, DENTRO do forEach
-    const label = L.marker([pivo.lat, pivo.lon], {
-      icon: L.divIcon({
-        className: 'label-pivo',
-        html: pivo.nome,
-        iconSize: [60, 20],
-        iconAnchor: [30, -10]
-      })
-    }).addTo(map);
-    marcadoresLegenda.push(label);
-  }
-});
-          const totalPivos = Object.keys(pivotsMap).length;
-          const foraCobertura = Object.values(pivotsMap).filter(m => m.options.fillColor === 'red').length;
-
-          document.getElementById("total-pivos").textContent = `Pivôs: ${totalPivos}`;
-          document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${foraCobertura}`;
-          document.getElementById("altura-antena-info").textContent = `Altura da antena: ${alturaAntena} m`;
-          document.getElementById("altura-receiver-info").textContent = `Altura receiver: ${alturaReceiver} m`;
-          
+          marcadoresLegenda.push(label);
         }
       });
 
+      const totalPivos = Object.keys(pivotsMap).length;
+      const foraCobertura = Object.values(pivotsMap).filter(m => m.options.fillColor === 'red').length;
 
-  // Atualiza o nome do arquivo selecionado no botão
+      document.getElementById("total-pivos").textContent = `Pivôs: ${totalPivos}`;
+      document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${foraCobertura}`;
+      document.getElementById("altura-antena-info").textContent = `Altura da antena: ${alturaAntena} m`;
+      document.getElementById("altura-receiver-info").textContent = `Altura receiver: ${alturaReceiver} m`;
+    }
+  });
+</script>
+
+<script>
+  // Atualiza o nome do arquivo exibido no botão
   document.getElementById('arquivo').addEventListener('change', (e) => {
     const nome = e.target.files[0]?.name || 'Escolher arquivo';
     document.getElementById('nome-arquivo').textContent = nome;
   });
 
+  // Alternar exibição de legendas (nomes)
   document.getElementById("toggle-legenda").addEventListener("click", () => {
-  legendasAtivas = !legendasAtivas;
-  marcadoresLegenda.forEach(m => {
-    if (legendasAtivas) {
-      m.addTo(map);
-    } else {
-      map.removeLayer(m);
-    }
+    legendasAtivas = !legendasAtivas;
+    marcadoresLegenda.forEach(m => {
+      if (legendasAtivas) {
+        m.addTo(map);
+      } else {
+        map.removeLayer(m);
+      }
+    });
   });
-});
-
-
-    </script>
-  </body>
+</script>
+</body>
 </html>
