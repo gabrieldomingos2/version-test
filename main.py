@@ -101,28 +101,46 @@ def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png"
         return pivos
 
 
+import json  # garante que esteja no topo
+
 @app.post("/processar_kmz")
 async def processar_kmz(file: UploadFile = File(...)):
-    conteudo = await file.read()
-    os.makedirs("arquivos", exist_ok=True)
-    caminho_kmz = "arquivos/entrada.kmz"
-    with open(caminho_kmz, "wb") as f:
-        f.write(conteudo)
+    try:
+        print("📥 Recebendo arquivo KMZ...")
+        conteudo = await file.read()
 
-    antena, pivos, ciclos = parse_kmz(caminho_kmz)
+        os.makedirs("arquivos", exist_ok=True)
+        caminho_kmz = "arquivos/entrada.kmz"
 
-    if not antena:
-        return {"erro": "Antena não encontrada no KMZ"}
+        with open(caminho_kmz, "wb") as f:
+            f.write(conteudo)
 
-    # ✅ SALVA o contorno da fazenda dentro da função
-    if ciclos:
-        maior = max(ciclos, key=lambda c: len(c["coordenadas"]))
-        coords_fazenda = [[lon, lat] for lat, lon in maior["coordenadas"]]
-        with open("static/contorno_fazenda.json", "w") as f:
-            json.dump(coords_fazenda, f)
+        print("📦 KMZ salvo em:", caminho_kmz)
 
-    return {"antena": antena, "pivos": pivos, "ciclos": ciclos}
+        # LOGA conteúdo do ZIP
+        with zipfile.ZipFile(caminho_kmz, 'r') as kmz:
+            print("🗂️ Conteúdo do KMZ:", kmz.namelist())
 
+        antena, pivos, ciclos = parse_kmz(caminho_kmz)
+
+        if not antena:
+            return {"erro": "Antena não encontrada no KMZ"}
+
+        if ciclos:
+            maior = max(ciclos, key=lambda c: len(c["coordenadas"]))
+            coords_fazenda = [[lon, lat] for lat, lon in maior["coordenadas"]]
+            with open("static/contorno_fazenda.json", "w") as f:
+                json.dump(coords_fazenda, f)
+
+        return {
+            "antena": antena,
+            "pivos": pivos,
+            "ciclos": ciclos
+        }
+
+    except Exception as e:
+        print("❌ Erro em /processar_kmz:", str(e))
+        return {"erro": f"Erro interno ao processar KMZ: {str(e)}"}
 
 
 @app.post("/simular_sinal")
