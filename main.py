@@ -471,4 +471,37 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * 2 * atan2(sqrt(a), sqrt(1 - a))
 
 
+from math import dist
+
+@app.post("/sugerir_repetidoras")
+async def sugerir_repetidoras(data: dict):
+    try:
+        antena = data["antena"]
+        pivos = data["pivos"]
+        pivos_fora = [p for p in pivos if p.get("fora")]
+
+        if not pivos_fora:
+            return {"sugestoes": []}
+
+        sugestoes = []
+        torre_atual = {"lat": antena["lat"], "lon": antena["lon"]}
+
+        while pivos_fora:
+            # Encontra o pivô fora da cobertura mais próximo da torre atual
+            mais_proximo = min(pivos_fora, key=lambda p: dist([p["lat"], p["lon"]], [torre_atual["lat"], torre_atual["lon"]]))
+
+            sugestoes.append({
+                "lat": mais_proximo["lat"],
+                "lon": mais_proximo["lon"]
+            })
+
+            torre_atual = mais_proximo
+            pivos_fora.remove(mais_proximo)
+
+        return {"sugestoes": sugestoes}
+
+    except Exception as e:
+        return {"erro": f"Falha na sugestão automática: {str(e)}"}
+
+
 
