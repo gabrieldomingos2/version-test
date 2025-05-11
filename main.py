@@ -283,9 +283,17 @@ async def simular_manual(params: dict):
         "pivos": pivos_com_status
     }
 
+import json
+import httpx
+from shapely.geometry import Point, Polygon
+from fastapi import FastAPI
+
+app = FastAPI()
+
 # ⛰️ Função: detecta os pontos mais altos da imagem (base no canal verde)
 def detectar_pontos_altos(bounds, caminho_imagem="static/imagens/sinal.png", top_n=5):
     try:
+        from PIL import Image
         img = Image.open(caminho_imagem).convert("RGB")
         largura, altura = img.size
         sul, oeste, norte, leste = bounds
