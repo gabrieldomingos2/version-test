@@ -262,29 +262,22 @@ async def simular_manual(params: dict):
 
     if resposta.status_code != 200:
         return {"erro": "Erro na requisição manual", "detalhes": resposta.text}
-import json  # adiciona no topo, se não tiver
 
-@app.post("/processar_kmz")
-async def processar_kmz(file: UploadFile = File(...)):
-    try:
-        conteudo = await file.read()
-        os.makedirs("arquivos", exist_ok=True)
-        caminho_kmz = "arquivos/entrada.kmz"
-        with open(caminho_kmz, "wb") as f:
-            f.write(conteudo)
+    data = resposta.json()
+    imagem_url = data.get("PNG_WGS84")
+    bounds = data.get("bounds")
 
-        antena, pivos, ciclos = parse_kmz(caminho_kmz)
+    # Baixa e salva a imagem
+    async with httpx.AsyncClient() as client:
+        r = await client.get(imagem_url)
+        with open("static/imagens/sinal.png", "wb") as f:
+            f.write(r.content)
 
-        if not antena:
-            return {"erro": "Antena não encontrada no KMZ"}
+    # Analisa cobertura com base na imagem
+    pivos = detectar_pivos_fora(bounds, params.get("pivos_atuais", []))
 
-        if ciclos:
-            maior = max(ciclos, key=lambda c: len(c["coordenadas"]))
-            coords_fazenda = [[lon, lat] for lat, lon in maior["coordenadas"]]
-            with open("static/contorno_fazenda.json", "w") as f:
-                json.dump(coords_fazenda, f)
-
-        return {"antena": antena, "pivos": pivos, "ciclos": ciclos}
-    
-    except Exception as e:
-        return {"erro": f"Erro interno ao processar KMZ: {str(e)}"}
+    return {
+        "imagem_salva": imagem_url,
+        "bounds": bounds,
+        "pivos": pivos
+    }
