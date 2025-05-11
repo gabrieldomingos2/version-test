@@ -1,3 +1,4 @@
+from math import radians, cos, sin, sqrt, atan2
 from random import uniform, randint
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -394,5 +395,80 @@ async def detectar_pontos_altos():
 
     except Exception as e:
         return {"erro": str(e)}
+
+        from math import radians, cos, sin, sqrt, atan2
+
+@app.post("/ai_sugere_repetidoras")
+async def ai_sugere_repetidoras():
+    try:
+        # 🔁 Passo 1: Recarrega KMZ
+        _, pivos, _ = parse_kmz("arquivos/entrada.kmz")
+
+        # 🔁 Passo 2: Carrega imagem da antena principal
+        bounds = [lat_sul, lon_oeste, lat_norte, lon_leste]  # substitua pelos últimos bounds válidos salvos
+        img_path = "static/imagens/sinal.png"
+        pivos_fora = detectar_pivos_fora(bounds, pivos, caminho_imagem=img_path)
+
+        # 🔍 Filtra os pivôs fora da cobertura
+        fora = [p for p in pivos_fora if p["fora"]]
+
+        if not fora:
+            return {"mensagem": "Todos os pivôs já estão cobertos!"}
+
+        # 📡 Parâmetros fixos da repetidora
+        altura_antena = 5
+        altura_receiver = 3
+        raio_km = 2.0  # máximo de alcance entre repetidoras
+
+        # 🧠 Algoritmo guloso: coloca uma repetidora e cobre o máximo de pivôs possível
+        repetidoras = []
+        usados = set()
+
+        while len(usados) < len(fora):
+            melhores_cobertos = []
+            melhor_pivo = None
+
+            for pivo in fora:
+                if pivo["nome"] in usados:
+                    continue
+
+                cobertos = []
+                for outro in fora:
+                    if outro["nome"] in usados:
+                        continue
+
+                    dist = haversine(pivo["lat"], pivo["lon"], outro["lat"], outro["lon"])
+                    if dist <= raio_km:
+                        cobertos.append(outro)
+
+                if len(cobertos) > len(melhores_cobertos):
+                    melhores_cobertos = cobertos
+                    melhor_pivo = pivo
+
+            # Salva repetidora nesse ponto
+            repetidoras.append({
+                "lat": melhor_pivo["lat"],
+                "lon": melhor_pivo["lon"],
+                "altura": altura_antena,
+                "altura_receiver": altura_receiver
+            })
+
+            # Marca pivôs como cobertos
+            for coberto in melhores_cobertos:
+                usados.add(coberto["nome"])
+
+        return {"repetidoras": repetidoras}
+
+    except Exception as e:
+        return {"erro": str(e)}
+
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371.0  # raio da Terra em km
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+    return R * 2 * atan2(sqrt(a), sqrt(1 - a))
+
 
 
