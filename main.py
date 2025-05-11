@@ -369,3 +369,29 @@ async def reavaliar_pivos(data: dict):
     except Exception as e:
         return {"erro": f"Falha ao reavaliar pivôs: {str(e)}"}
 
+        from random import uniform, randint
+
+@app.post("/detectar_pontos_altos")
+async def detectar_pontos_altos():
+    try:
+        with open("static/contorno_fazenda.json") as f:
+            coords = json.load(f)
+
+        lats = [c[1] for c in coords]
+        lons = [c[0] for c in coords]
+
+        pontos = []
+        for _ in range(30):  # Gera 30 pontos aleatórios dentro do bbox
+            lat = uniform(min(lats), max(lats))
+            lon = uniform(min(lons), max(lons))
+            altura = randint(700, 950)  # Altura fake mockada
+            pontos.append({"lat": lat, "lon": lon, "altitude": altura})
+
+        # Retorna os 5 mais altos
+        top = sorted(pontos, key=lambda x: x["altitude"], reverse=True)[:5]
+        return {"pontos_altos": top}
+
+    except Exception as e:
+        return {"erro": str(e)}
+
+
