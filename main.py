@@ -262,24 +262,29 @@ async def simular_manual(params: dict):
 
     if resposta.status_code != 200:
         return {"erro": "Erro na requisição manual", "detalhes": resposta.text}
+import json  # adiciona no topo, se não tiver
 
-    data = resposta.json()
-    imagem_url = data.get("PNG_WGS84")
-    bounds = data.get("bounds")
+@app.post("/processar_kmz")
+async def processar_kmz(file: UploadFile = File(...)):
+    try:
+        conteudo = await file.read()
+        os.makedirs("arquivos", exist_ok=True)
+        caminho_kmz = "arquivos/entrada.kmz"
+        with open(caminho_kmz, "wb") as f:
+            f.write(conteudo)
 
-    async with httpx.AsyncClient() as client:
-        r = await client.get(imagem_url)
-        with open("static/imagens/sinal_manual.png", "wb") as f:
-            f.write(r.content)
+        antena, pivos, ciclos = parse_kmz(caminho_kmz)
 
-    _, pivos, _ = parse_kmz("arquivos/entrada.kmz")
-    pivos_atuais = params.get("pivos_atuais", [])
-    pivos_com_status = detectar_pivos_fora(bounds, pivos, "static/imagens/sinal_manual.png", pivos_atuais)
+        if not antena:
+            return {"erro": "Antena não encontrada no KMZ"}
 
-    return {
-        "imagem_salva": "/static/imagens/sinal_manual.png",
-        "bounds": bounds,
-        "status": "Simulação manual concluída",
-        "pivos": pivos_com_status
-    }
+        if ciclos:
+            maior = max(ciclos, key=lambda c: len(c["coordenadas"]))
+            coords_fazenda = [[lon, lat] for lat, lon in maior["coordenadas"]]
+            with open("static/contorno_fazenda.json", "w") as f:
+                json.dump(coords_fazenda, f)
 
+        return {"antena": antena, "pivos": pivos, "ciclos": ciclos}
+    
+    except Exception as e:
+        return {"erro": f"Erro interno ao processar KMZ: {str(e)}"}
