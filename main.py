@@ -320,3 +320,48 @@ async def simular_manual(params: dict):
         "pivos": pivos_com_status
     }
 
+@app.post("/reavaliar_pivos")
+async def reavaliar_pivos(data: dict):
+    try:
+        pivos = data.get("pivos", [])
+        overlays = data.get("overlays", [])
+
+        atualizados = []
+
+        for pivo in pivos:
+            lat, lon = pivo["lat"], pivo["lon"]
+            coberto = False
+
+            for overlay in overlays:
+                bounds = overlay["bounds"]  # [sul, oeste, norte, leste]
+                imagem_path = overlay["imagem"]
+
+                try:
+                    img = Image.open(imagem_path).convert("RGBA")
+                    largura, altura = img.size
+
+                    sul, oeste, norte, leste = bounds
+                    if sul > norte:
+                        sul, norte = norte, sul
+                    if oeste > leste:
+                        oeste, leste = leste, oeste
+
+                    x = int((lon - oeste) / (leste - oeste) * largura)
+                    y = int((norte - lat) / (norte - sul) * altura)
+
+                    if 0 <= x < largura and 0 <= y < altura:
+                        _, _, _, a = img.getpixel((x, y))
+                        if a > 0:
+                            coberto = True
+                            break
+                except Exception as e:
+                    print(f"Erro ao analisar overlay: {imagem_path}", e)
+
+            pivo["fora"] = not coberto
+            atualizados.append(pivo)
+
+        return {"pivos": atualizados}
+
+    except Exception as e:
+        return {"erro": f"Falha ao reavaliar pivôs: {str(e)}"}
+
