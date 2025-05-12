@@ -123,10 +123,6 @@
   transform: translateY(0);
 }
 
-.pulse-glow {
-  animation: pulseGlow 1.5s infinite;
-}
-
 
   </style>
 </head>
@@ -213,10 +209,6 @@
       📡 Simular
     </button>
   </div>
-
-  <button onclick="detectarPontosAltos()" class="glass-button absolute top-4 right-[12.5rem] z-[9999]">⛰️ Altos</button>
-
-  <div>
 
   <!-- Mapa principal do Leaflet -->
   <div id="map"></div>
@@ -948,28 +940,6 @@ repetidoras.forEach(rep => {
     repetidoras.style.position = "absolute";
     repetidoras.style.right = "16px";
     repetidoras.style.top = `${topoAtual}px`;
-  }
-}
-
-
-async function detectarPontosAltos() {
-  const res = await fetch("https://version-test.onrender.com/detectar_pontos_altos");
-  const data = await res.json();
-
-  if (data.pontos_altos) {
-    data.pontos_altos.forEach((p, i) => {
-      const marcador = L.circleMarker([p.lat, p.lon], {
-        radius: 8,
-        color: "lime",
-        fillColor: "lime",
-        fillOpacity: 0.9,
-        className: "pulse-glow"
-      }).addTo(map).bindPopup(`🌄 Ponto Alto ${i + 1}<br>Altitude estimada: ${p.altitude}m`);
-    });
-
-    mostrarMensagem("✅ Pontos altos detectados!");
-  } else {
-    mostrarMensagem("❌ Falha ao detectar pontos altos", "erro");
   }
 }
 
