@@ -29,6 +29,12 @@ def icone_torre():
 from statistics import mean
 import zipfile, os, xml.etree.ElementTree as ET, re
 
+from statistics import mean
+import zipfile, os, xml.etree.ElementTree as ET, re
+
+def normalize(nome):
+    return re.sub(r"[^a-z0-9]", "", nome.lower())
+
 def parse_kmz(caminho_kmz):
     antena = None
     pivos = []
@@ -68,7 +74,7 @@ def parse_kmz(caminho_kmz):
                         ciclos.append({"nome": nome.text.strip(), "coordenadas": coords})
 
     # ➕ GERA CENTROS FALTANTES COM BASE NOS CÍRCULOS
-    nomes_existentes = {p["nome"].strip().lower() for p in pivos}
+    nomes_existentes = {normalize(p["nome"]) for p in pivos}
     contador_virtual = 1
 
     for ciclo in ciclos:
@@ -79,8 +85,9 @@ def parse_kmz(caminho_kmz):
 
         nome_normalizado = nome.lower().replace("medida do círculo", "").strip()
         nome_virtual = f"Pivô {nome_normalizado}".strip()
+        nome_comparado = normalize(nome_virtual)
 
-        if nome_virtual.lower() in nomes_existentes:
+        if nome_comparado in nomes_existentes:
             continue
 
         # 🧠 Encontra os dois pontos mais distantes entre si
@@ -118,6 +125,8 @@ def parse_kmz(caminho_kmz):
             "lat": centro_lat,
             "lon": centro_lon
         })
+
+        nomes_existentes.add(normalize(nome_virtual))  # garante que não vai duplicar depois
 
         print(f"[DEBUG] {nome_virtual} → Lat: {centro_lat:.6f}, Lon: {centro_lon:.6f}")
 
