@@ -407,7 +407,8 @@ removerBtn.addEventListener("click", () => {
     if (marcadorAntena) map.removeLayer(marcadorAntena);
     Object.values(pivotsMap).forEach(m => map.removeLayer(m));
     circulosPivos.forEach(c => map.removeLayer(c));
-
+    
+    circulosPivos = [];
     marcadoresPivos = [];
     circulosPivos = [];
     pivotsMap = {};
