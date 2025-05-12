@@ -29,9 +29,6 @@ def icone_torre():
 from statistics import mean
 import zipfile, os, xml.etree.ElementTree as ET, re
 
-def ponto_medio(p1, p2):
-    return [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]
-
 def parse_kmz(caminho_kmz):
     antena = None
     pivos = []
@@ -72,6 +69,7 @@ def parse_kmz(caminho_kmz):
 
     # ➕ GERA CENTROS FALTANTES COM BASE NOS CÍRCULOS
     nomes_existentes = {p["nome"].strip().lower() for p in pivos}
+    contador_virtual = 1
 
     for ciclo in ciclos:
         nome = ciclo.get("nome", "").strip()
@@ -85,18 +83,25 @@ def parse_kmz(caminho_kmz):
         if nome_virtual.lower() in nomes_existentes:
             continue
 
-        # Verifica se é 180º (pivô em meia-lua)
+        # Verifica se é 180º (meia-lua): extremos distantes indicam linha reta
         primeiro = coords[0]
         ultimo = coords[-1]
         distancia_extremos = ((primeiro[0] - ultimo[0])**2 + (primeiro[1] - ultimo[1])**2)**0.5
 
-        if distancia_extremos > 0.0005:  # aproximadamente 50 metros
-            centro_lat, centro_lon = ponto_medio(primeiro, ultimo)
+        if distancia_extremos > 0.0005:
+            # Pega o ponto médio da reta base
+            centro_lat = (primeiro[0] + ultimo[0]) / 2
+            centro_lon = (primeiro[1] + ultimo[1]) / 2
         else:
             lats = [lat for lat, lon in coords]
             lons = [lon for lat, lon in coords]
             centro_lat = mean(lats)
             centro_lon = mean(lons)
+
+        # Gera nome automático se não vier com número
+        if not re.search(r"\d+", nome_virtual):
+            nome_virtual = f"Pivô {contador_virtual}"
+            contador_virtual += 1
 
         pivos.append({
             "nome": nome_virtual,
