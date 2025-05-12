@@ -26,6 +26,12 @@ def icone_torre():
     return FileResponse("static/imagens/cloudrf.png", media_type="image/png")
 
 
+from statistics import mean
+import zipfile, os, xml.etree.ElementTree as ET, re
+
+def ponto_medio(p1, p2):
+    return [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]
+
 def parse_kmz(caminho_kmz):
     antena = None
     pivos = []
@@ -53,7 +59,7 @@ def parse_kmz(caminho_kmz):
                             altura = int(match.group(1)) if match else 15
                             antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
                         elif "pivô" in nome_texto:
-                            pivos.append({"nome": nome.text, "lat": lat, "lon": lon})
+                            pivos.append({"nome": nome.text.strip(), "lat": lat, "lon": lon})
 
                     linha = placemark.find(".//kml:LineString/kml:coordinates", ns)
                     if nome is not None and linha is not None and "medida do círculo" in nome.text.lower():
@@ -62,9 +68,44 @@ def parse_kmz(caminho_kmz):
                         for c in coords_texto:
                             lon, lat = map(float, c.split(",")[:2])
                             coords.append([lat, lon])
-                        ciclos.append({"nome": nome.text, "coordenadas": coords})
+                        ciclos.append({"nome": nome.text.strip(), "coordenadas": coords})
+
+    # ➕ GERA CENTROS FALTANTES COM BASE NOS CÍRCULOS
+    nomes_existentes = {p["nome"].strip().lower() for p in pivos}
+
+    for ciclo in ciclos:
+        nome = ciclo.get("nome", "").strip()
+        coords = ciclo.get("coordenadas", [])
+        if not nome or not coords:
+            continue
+
+        nome_normalizado = nome.lower().replace("medida do círculo", "").strip()
+        nome_virtual = f"Pivô {nome_normalizado}".strip()
+
+        if nome_virtual.lower() in nomes_existentes:
+            continue
+
+        # Verifica se é 180º (pivô em meia-lua)
+        primeiro = coords[0]
+        ultimo = coords[-1]
+        distancia_extremos = ((primeiro[0] - ultimo[0])**2 + (primeiro[1] - ultimo[1])**2)**0.5
+
+        if distancia_extremos > 0.0005:  # aproximadamente 50 metros
+            centro_lat, centro_lon = ponto_medio(primeiro, ultimo)
+        else:
+            lats = [lat for lat, lon in coords]
+            lons = [lon for lat, lon in coords]
+            centro_lat = mean(lats)
+            centro_lon = mean(lons)
+
+        pivos.append({
+            "nome": nome_virtual,
+            "lat": centro_lat,
+            "lon": centro_lon
+        })
 
     return antena, pivos, ciclos
+
 
 def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png", pivos_existentes=[]):
     
