@@ -29,9 +29,6 @@ def icone_torre():
 from statistics import mean
 import zipfile, os, xml.etree.ElementTree as ET, re
 
-def normalize(nome):
-    return re.sub(r"[^a-z0-9]", "", nome.lower())
-
 def parse_kmz(caminho_kmz):
     antena = None
     pivos = []
@@ -70,56 +67,59 @@ def parse_kmz(caminho_kmz):
                             coords.append([lat, lon])
                         ciclos.append({"nome": nome.text.strip(), "coordenadas": coords})
 
-    # Gera centros faltantes APENAS se não houver pivôs detectados via placemark
-    if len(pivos) == 0:
-        nomes_existentes = set()
-        contador_virtual = 1
+    # ➕ GERA CENTROS FALTANTES COM BASE NOS CÍRCULOS
+    nomes_existentes = {p["nome"].strip().lower() for p in pivos}
+    contador_virtual = 1
 
-        for ciclo in ciclos:
-            nome = ciclo.get("nome", "").strip()
-            coords = ciclo.get("coordenadas", [])
-            if not nome or not coords:
-                continue
+    for ciclo in ciclos:
+        nome = ciclo.get("nome", "").strip()
+        coords = ciclo.get("coordenadas", [])
+        if not nome or not coords:
+            continue
 
+        nome_normalizado = nome.lower().replace("medida do círculo", "").strip()
+        nome_virtual = f"Pivô {nome_normalizado}".strip()
+
+        if nome_virtual.lower() in nomes_existentes:
+            continue
+
+        # 🧠 Encontra os dois pontos mais distantes entre si
+        max_dist = 0
+        ponto_a = coords[0]
+        ponto_b = coords[1]
+
+        for i in range(len(coords)):
+            for j in range(i + 1, len(coords)):
+                lat1, lon1 = coords[i]
+                lat2, lon2 = coords[j]
+                dist = ((lat1 - lat2)**2 + (lon1 - lon2)**2) ** 0.5
+                if dist > max_dist:
+                    max_dist = dist
+                    ponto_a = coords[i]
+                    ponto_b = coords[j]
+
+        # ✅ Se a distância for grande, assume que é pivô 180°
+        if max_dist > 0.0005:
+            centro_lat = (ponto_a[0] + ponto_b[0]) / 2
+            centro_lon = (ponto_a[1] + ponto_b[1]) / 2
+        else:
+            lats = [lat for lat, lon in coords]
+            lons = [lon for lat, lon in coords]
+            centro_lat = mean(lats)
+            centro_lon = mean(lons)
+
+        # 🔢 Nomeia automaticamente se não houver número
+        if not re.search(r"\d+", nome_virtual):
             nome_virtual = f"Pivô {contador_virtual}"
-            nome_comparado = normalize(nome_virtual)
-
-            if nome_comparado in nomes_existentes:
-                continue
-
-            max_dist = 0
-            ponto_a = coords[0]
-            ponto_b = coords[1]
-
-            for i in range(len(coords)):
-                for j in range(i + 1, len(coords)):
-                    lat1, lon1 = coords[i]
-                    lat2, lon2 = coords[j]
-                    dist = ((lat1 - lat2)**2 + (lon1 - lon2)**2) ** 0.5
-                    if dist > max_dist:
-                        max_dist = dist
-                        ponto_a = coords[i]
-                        ponto_b = coords[j]
-
-            if max_dist > 0.0005:
-                centro_lat = (ponto_a[0] + ponto_b[0]) / 2
-                centro_lon = (ponto_a[1] + ponto_b[1]) / 2
-            else:
-                lats = [lat for lat, lon in coords]
-                lons = [lon for lat, lon in coords]
-                centro_lat = mean(lats)
-                centro_lon = mean(lons)
-
-            pivos.append({
-                "nome": nome_virtual,
-                "lat": centro_lat,
-                "lon": centro_lon
-            })
-
-            nomes_existentes.add(normalize(nome_virtual))
             contador_virtual += 1
 
-            print(f"[DEBUG] {nome_virtual} → Lat: {centro_lat:.6f}, Lon: {centro_lon:.6f}")
+        pivos.append({
+            "nome": nome_virtual,
+            "lat": centro_lat,
+            "lon": centro_lon
+        })
+
+        print(f"[DEBUG] {nome_virtual} → Lat: {centro_lat:.6f}, Lon: {centro_lon:.6f}")
 
     return antena, pivos, ciclos
 
