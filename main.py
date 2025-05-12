@@ -83,22 +83,32 @@ def parse_kmz(caminho_kmz):
         if nome_virtual.lower() in nomes_existentes:
             continue
 
-        # Verifica se é 180º (meia-lua): extremos distantes indicam linha reta
-        primeiro = coords[0]
-        ultimo = coords[-1]
-        distancia_extremos = ((primeiro[0] - ultimo[0])**2 + (primeiro[1] - ultimo[1])**2)**0.5
+        # 🧠 Encontra os dois pontos mais distantes entre si
+        max_dist = 0
+        ponto_a = coords[0]
+        ponto_b = coords[1]
 
-        if distancia_extremos > 0.0005:
-            # Pega o ponto médio da reta base
-            centro_lat = (primeiro[0] + ultimo[0]) / 2
-            centro_lon = (primeiro[1] + ultimo[1]) / 2
+        for i in range(len(coords)):
+            for j in range(i + 1, len(coords)):
+                lat1, lon1 = coords[i]
+                lat2, lon2 = coords[j]
+                dist = ((lat1 - lat2)**2 + (lon1 - lon2)**2) ** 0.5
+                if dist > max_dist:
+                    max_dist = dist
+                    ponto_a = coords[i]
+                    ponto_b = coords[j]
+
+        # ✅ Se a distância for grande, assume que é pivô 180°
+        if max_dist > 0.0005:
+            centro_lat = (ponto_a[0] + ponto_b[0]) / 2
+            centro_lon = (ponto_a[1] + ponto_b[1]) / 2
         else:
             lats = [lat for lat, lon in coords]
             lons = [lon for lat, lon in coords]
             centro_lat = mean(lats)
             centro_lon = mean(lons)
 
-        # Gera nome automático se não vier com número
+        # 🔢 Nomeia automaticamente se não houver número
         if not re.search(r"\d+", nome_virtual):
             nome_virtual = f"Pivô {contador_virtual}"
             contador_virtual += 1
@@ -108,6 +118,8 @@ def parse_kmz(caminho_kmz):
             "lat": centro_lat,
             "lon": centro_lon
         })
+
+        print(f"[DEBUG] {nome_virtual} → Lat: {centro_lat:.6f}, Lon: {centro_lon:.6f}")
 
     return antena, pivos, ciclos
 
