@@ -258,7 +258,7 @@ async def simular_sinal(antena: dict):
         with open("static/imagens/sinal.png", "wb") as f:
             f.write(r.content)
 
-    _, pivos, _ = parse_kmz("arquivos/entrada.kmz")
+    _, pivos, _, _ = parse_kmz("arquivos/entrada.kmz")
     pivos_com_status = detectar_pivos_fora(bounds, pivos)
 
     return {
