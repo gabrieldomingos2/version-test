@@ -5,8 +5,6 @@
   <title>Simulador de Sinal - Irricontrol</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-
   <!-- TailwindCSS para estilo rápido -->
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -304,12 +302,8 @@
       fillOpacity: 0.6
     });
 
-    marcador.bindPopup(`
-  <div class="popup-glass">
-    ${coberto ? '✅' : '❌'} ${nome}<br>
-    <button onclick="verPerfilElevacao('${nome}', ${centro.lat}, ${centro.lng})" class="text-xs text-blue-600 hover:underline mt-1">📉 Ver Elevação</button>
-  </div>
- `);
+    marcador.bindPopup(`<div class="popup-glass">${coberto ? '✅' : '❌'} ${nome}</div>`);
+  });
 
   const fora = Object.values(pivotsMap).filter(m => m.options.fillColor === 'red').length;
   document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${fora}`;
