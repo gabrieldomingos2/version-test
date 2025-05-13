@@ -2,8 +2,9 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import zipfile, os, xml.etree.ElementTree as ET, httpx, re
+import zipfile, os, xml.etree.ElementTree as ET, httpx, re, json
 from PIL import Image
+from statistics import mean
 
 app = FastAPI()
 
@@ -25,14 +26,11 @@ API_KEY = "35113-e181126d4af70994359d767890b3a4f2604eb0ef"
 def icone_torre():
     return FileResponse("static/imagens/cloudrf.png", media_type="image/png")
 
-
-from statistics import mean
-import zipfile, os, xml.etree.ElementTree as ET, re
-
 def parse_kmz(caminho_kmz):
     antena = None
     pivos = []
     ciclos = []
+    bombas = []
 
     with zipfile.ZipFile(caminho_kmz, 'r') as kmz:
         for nome_arquivo in kmz.namelist():
@@ -49,25 +47,30 @@ def parse_kmz(caminho_kmz):
                     if nome is not None and ponto is not None:
                         nome_texto = nome.text.lower()
                         coords = ponto.text.strip().split(",")
+                        if len(coords) < 2:
+                            continue
                         lon, lat = float(coords[0]), float(coords[1])
 
-                        if any(p in nome_texto for p in ["antena", "torre", "barracão", "galpão", "silo", "repetidora"]):
+                        if any(p in nome_texto for p in ["antena", "torre", "barrac\u00e3o", "galp\u00e3o", "silo", "repetidora"]):
                             match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
                             altura = int(match.group(1)) if match else 15
                             antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
-                        elif "pivô" in nome_texto:
+                        elif "piv\u00f4" in nome_texto:
                             pivos.append({"nome": nome.text.strip(), "lat": lat, "lon": lon})
+                        elif "casa de bomba" in nome_texto or "irripump" in nome_texto:
+                            bombas.append({"nome": nome.text.strip(), "lat": lat, "lon": lon})
 
                     linha = placemark.find(".//kml:LineString/kml:coordinates", ns)
-                    if nome is not None and linha is not None and "medida do círculo" in nome.text.lower():
+                    if nome is not None and linha is not None and "medida do c\u00edrculo" in nome.text.lower():
                         coords_texto = linha.text.strip().split()
                         coords = []
                         for c in coords_texto:
-                            lon, lat = map(float, c.split(",")[:2])
-                            coords.append([lat, lon])
+                            partes = c.split(",")
+                            if len(partes) >= 2:
+                                lon, lat = map(float, partes[:2])
+                                coords.append([lat, lon])
                         ciclos.append({"nome": nome.text.strip(), "coordenadas": coords})
 
-    # ➕ GERA CENTROS FALTANTES COM BASE NOS CÍRCULOS
     nomes_existentes = {p["nome"].strip().lower() for p in pivos}
     contador_virtual = 1
 
@@ -77,16 +80,15 @@ def parse_kmz(caminho_kmz):
         if not nome or not coords:
             continue
 
-        nome_normalizado = nome.lower().replace("medida do círculo", "").strip()
-        nome_virtual = f"Pivô {nome_normalizado}".strip()
+        nome_normalizado = nome.lower().replace("medida do c\u00edrculo", "").strip()
+        nome_virtual = f"Piv\u00f4 {nome_normalizado}".strip()
 
         if nome_virtual.lower() in nomes_existentes:
             continue
 
-        # 🧠 Encontra os dois pontos mais distantes entre si
         max_dist = 0
         ponto_a = coords[0]
-        ponto_b = coords[1]
+        ponto_b = coords[1] if len(coords) > 1 else coords[0]
 
         for i in range(len(coords)):
             for j in range(i + 1, len(coords)):
@@ -98,7 +100,6 @@ def parse_kmz(caminho_kmz):
                     ponto_a = coords[i]
                     ponto_b = coords[j]
 
-        # ✅ Se a distância for grande, assume que é pivô 180°
         if max_dist > 0.0005:
             centro_lat = (ponto_a[0] + ponto_b[0]) / 2
             centro_lon = (ponto_a[1] + ponto_b[1]) / 2
@@ -108,9 +109,8 @@ def parse_kmz(caminho_kmz):
             centro_lat = mean(lats)
             centro_lon = mean(lons)
 
-        # 🔢 Nomeia automaticamente se não houver número
         if not re.search(r"\d+", nome_virtual):
-            nome_virtual = f"Pivô {contador_virtual}"
+            nome_virtual = f"Piv\u00f4 {contador_virtual}"
             contador_virtual += 1
 
         pivos.append({
@@ -119,10 +119,9 @@ def parse_kmz(caminho_kmz):
             "lon": centro_lon
         })
 
-        print(f"[DEBUG] {nome_virtual} → Lat: {centro_lat:.6f}, Lon: {centro_lon:.6f}")
+        print(f"[DEBUG] {nome_virtual} \u2192 Lat: {centro_lat:.6f}, Lon: {centro_lon:.6f}")
 
-    return antena, pivos, ciclos
-
+    return antena, pivos, ciclos, bombas
 
 def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png", pivos_existentes=[]):
     
@@ -180,7 +179,7 @@ async def processar_kmz(file: UploadFile = File(...)):
         with zipfile.ZipFile(caminho_kmz, 'r') as kmz:
             print("🗂️ Conteúdo do KMZ:", kmz.namelist())
 
-        antena, pivos, ciclos = parse_kmz(caminho_kmz)
+        antena, pivos, ciclos, bombas = parse_kmz(caminho_kmz)
 
         if not antena:
             return {"erro": "Antena não encontrada no KMZ"}
@@ -192,10 +191,11 @@ async def processar_kmz(file: UploadFile = File(...)):
                 json.dump(coords_fazenda, f)
 
         return {
-            "antena": antena,
-            "pivos": pivos,
-            "ciclos": ciclos
-        }
+         "antena": antena,
+         "pivos": pivos,
+         "ciclos": ciclos,
+         "bombas": bombas
+         }
 
     except Exception as e:
         print("❌ Erro em /processar_kmz:", str(e))

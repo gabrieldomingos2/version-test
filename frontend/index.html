@@ -140,6 +140,7 @@
 
   <!-- Contêiner pai para alinhar os dois painéis fixos no canto direito -->
 <div class="absolute top-20 right-4 flex flex-col items-end space-y-2 z-[9998]">
+<<<<<<< HEAD
   <!-- Painel de dados da simulação -->
   <div id="painel-dados" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden">
     <h2 class="text-lg font-bold mb-2">📊 Dados da Simulação</h2>
@@ -154,6 +155,26 @@
     <p id="altura-receiver-info">Altura receiver: -- m</p>
   </div>
 
+=======
+  
+  <!-- Painel de dados da simulação -->
+  <div id="painel-dados" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden">
+  <h2 class="text-lg font-bold mb-2">📊 Dados da Simulação</h2>
+
+  <div class="flex justify-between items-center mb-2">
+    <span class="font-semibold text-sm text-green-300">📋 Copiar</span>
+    <button onclick="copiarPivosFora()" class="text-xs text-green-400 hover:underline">Copiar</button>
+  </div>
+
+  <p id="total-pivos" class="mb-1">Pivôs: --</p>
+  <p id="fora-cobertura" class="mb-1">Fora da cobertura: --</p>
+  <p id="altura-antena-info" class="mb-1">Altura da antena principal: -- m</p>
+  <p id="altura-receiver-info" class="mb-1">Altura receiver: -- m</p>
+  <p id="total-repetidoras" class="mb-1">Total Repetidoras: --</p>
+  <p id="total-bombas" class="mb-1 hidden">Casas de bomba: --</p>
+  </div>
+
+>>>>>>> f51ebf3 (🔥 Ajusta painel lateral com dados de antena, receiver, repetidoras e casas de bomba)
   <!-- Painel de repetidoras -->
   <div id="painel-repetidoras" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden">
     <h2 class="text-lg font-bold mb-2 text-green-300">📍 Repetidoras</h2>
@@ -265,12 +286,22 @@
   };
 
   // Atualiza o painel lateral com dados da simulação
-  function atualizarPainel(pivos, antena, receiverAltura = 3) {
-    document.getElementById("total-pivos").textContent = `Pivôs: ${pivos.length}`;
-    document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${pivos.filter(p => p.fora).length}`;
-    document.getElementById("altura-antena-info").textContent = `Altura da antena: ${antena.altura} m`;
-    document.getElementById("altura-receiver-info").textContent = `Altura receiver: ${receiverAltura} m`;
-    }
+  function atualizarPainel(pivos, antena, receiverAltura = 3, bombas = []) {
+  document.getElementById("total-pivos").textContent = `Pivôs: ${pivos.length}`;
+  document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${pivos.filter(p => p.fora).length}`;
+  document.getElementById("altura-antena-info").textContent = `Altura da antena principal: ${antena.altura} m`;
+  document.getElementById("altura-receiver-info").textContent = `Altura receiver: ${receiverAltura} m`;
+  document.getElementById("total-repetidoras").textContent = `Total Repetidoras: ${repetidoras.length}`;
+
+  const bombasElemento = document.getElementById("total-bombas");
+  if (bombas.length > 0) {
+    bombasElemento.textContent = `Casas de bomba: ${bombas.length}`;
+    bombasElemento.classList.remove("hidden");
+  } else {
+    bombasElemento.classList.add("hidden");
+  }
+  }
+
 
   // 🔁 Reavalia os pivôs com base nas camadas visíveis de sinal no mapa
   function reavaliarPivosSemCobertura() {
@@ -504,6 +535,23 @@ painelRepetidoras.appendChild(itemAntena);
       marcadoresLegenda.push(label);
     });
 
+    // Ícone das casas de bomba
+const iconeBomba = L.icon({
+  iconUrl: "https://version-test.onrender.com/static/imagens/homergardenbusiness.png",
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -32]
+});
+
+// Desenha casas de bomba
+if (data.bombas) {
+  data.bombas.forEach(bomba => {
+    L.marker([bomba.lat, bomba.lon], { icon: iconeBomba })
+      .addTo(map)
+      .bindPopup(`<div class="popup-glass">🚰 ${bomba.nome}</div>`);
+  });
+  }
+
     // Desenha círculos de cobertura, se existirem
     if (data.ciclos) {
       circulosPivos = data.ciclos.map(circulo =>
@@ -595,7 +643,7 @@ painelRepetidoras.appendChild(itemAntena);
         marcadoresLegenda.push(label);
       });
 
-      atualizarPainel(data.pivos, antenaGlobal);
+      atualizarPainel(data.pivos, antenaGlobal, 3, data.bombas || []);
       mostrarMensagem("📡 Estudo de sinal concluído com sucesso.");
       const btnSimular = document.getElementById("simular-btn");
 btnSimular.disabled = true;
