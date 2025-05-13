@@ -161,6 +161,35 @@ def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png"
 
 import json  # garante que esteja no topo
 
+def gerar_linha_reta_antena_pivo(lat1, lon1, lat2, lon2, pontos=30):
+    """Gera coordenadas entre antena e pivô"""
+    return [
+        (
+            lat1 + (lat2 - lat1) * i / (pontos - 1),
+            lon1 + (lon2 - lon1) * i / (pontos - 1)
+        )
+        for i in range(pontos)
+    ]
+
+async def consultar_elevacao_opentopo(pontos):
+    """
+    Consulta a API OpenTopoData com uma lista de (lat, lon) e retorna as elevações.
+    """
+    url = "https://api.opentopodata.org/v1/srtm90m"
+    coords_str = "|".join(f"{lat},{lon}" for lat, lon in pontos)
+    params = {"locations": coords_str}
+
+    async with httpx.AsyncClient() as client:
+        resposta = await client.get(url, params=params)
+
+    if resposta.status_code != 200:
+        raise Exception(f"Erro na consulta à OpenTopoData: {resposta.text}")
+
+    dados = resposta.json().get("results", [])
+    elevacoes = [item.get("elevation", 0) for item in dados]
+    return elevacoes
+
+
 @app.post("/processar_kmz")
 async def processar_kmz(file: UploadFile = File(...)):
     try:
@@ -427,3 +456,44 @@ async def reavaliar_pivos(data: dict):
     except Exception as e:
         return {"erro": f"Falha ao reavaliar pivôs: {str(e)}"}
 
+@app.post("/perfil_elevacao")
+async def perfil_elevacao(payload: dict):
+
+    try:
+        lat1, lon1 = payload["antena"]["lat"], payload["antena"]["lon"]
+        lat2, lon2 = payload["pivo"]["lat"], payload["pivo"]["lon"]
+
+        linha = gerar_linha_reta_antena_pivo(lat1, lon1, lat2, lon2, pontos=30)
+        elevacoes = await consultar_elevacao_opentopo(linha)
+
+        # Cálculo da linha reta entre os dois extremos
+        altura_antena = payload["antena"].get("altura", 15)
+        altura_receiver = payload["pivo"].get("altura_receiver", 3)
+
+        h_inicial = altura_antena
+        h_final = elevacoes[-1] + altura_receiver
+
+        distancia_total = len(elevacoes) - 1
+        linha_visada = [
+            h_inicial + (h_final - h_inicial) * i / distancia_total
+            for i in range(len(elevacoes))
+        ]
+
+        bloqueios = [
+            {"indice": i, "distancia": i, "elevacao": elevacoes[i]}
+            for i in range(len(elevacoes))
+            if elevacoes[i] > linha_visada[i]
+        ]
+
+        resposta = {
+            "coords": linha,
+            "elevacoes": elevacoes,
+            "linha_visada": linha_visada,
+            "bloqueios": bloqueios,
+            "diagnostico": "🔴 Obstáculo detectado" if bloqueios else "🟢 Linha de visada limpa"
+        }
+
+        return resposta
+
+    except Exception as e:
+        return {"erro": f"Erro ao gerar perfil de elevação: {str(e)}"}
