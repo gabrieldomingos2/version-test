@@ -51,7 +51,7 @@ def parse_kmz(caminho_kmz):
                             continue
                         lon, lat = float(coords[0]), float(coords[1])
 
-                        if any(p in nome_texto for p in ["antena", "torre", "barrac\u00e3o", "galp\u00e3o", "silo", "repetidora"]):
+                        if any(p in nome_texto for p in ["antena", "torre", "barrac\u00e3o", "galp\u00e3o", "silo", "Caixa d'água", "repetidora"]):
                             match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
                             altura = int(match.group(1)) if match else 15
                             antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
