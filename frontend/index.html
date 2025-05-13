@@ -5,6 +5,8 @@
   <title>Simulador de Sinal - Irricontrol</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
   <!-- TailwindCSS para estilo rápido -->
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -74,8 +76,10 @@
       color: white;
       font-size: 0.75rem;
       font-weight: bold;
+      text-align: center;
       text-shadow: 0 0 3px black;
       pointer-events: none;
+      white-space: nowrap;
     }
 
     .popup-glass {
@@ -131,20 +135,22 @@
 
 <body class="bg-gray-900 text-white overflow-hidden">
 
+<div class="absolute top-4 right-4 z-[9999] flex gap-2">
   <!-- Botão para abrir o painel de dados -->
-  <button id="toggle-painel" class="glass-button absolute top-4 right-4 z-[9999]">🧾</button>
-
-  <!-- Botão para alternar legenda -->
-  <button id="toggle-legenda" class="glass-button absolute top-4 right-52 z-[9999]">🏷️</button>
+  <button id="toggle-painel" class="glass-button">🧾</button>
 
   <!-- Botão para abrir painel de repetidoras -->
-  <button id="toggle-repetidoras" class="glass-button absolute top-4 right-28 z-[9999]">📍</button>
+  <button id="toggle-repetidoras" class="glass-button">📍</button>
+
+  <!-- Botão para alternar legenda -->
+  <button id="toggle-legenda" class="glass-button">🏷️</button>
+</div>
 
   <!-- Painel de dados da simulação -->
   <div id="painel-dados" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 top-20 z-[9998]">
     <h2 class="text-lg font-bold mb-2">📊 Dados da Simulação</h2>
     <div class="flex justify-between items-center mb-2">
-      <span class="font-semibold text-sm text-green-300">📋 Copiar</span>
+      <span class="font-semibold text-sm text-green-300">...</span>
       <button onclick="copiarPivosFora()" class="text-xs text-green-400 hover:underline">Copiar</button>
     </div>
     <p id="total-pivos" class="mb-1">Pivôs: --</p>
@@ -298,8 +304,12 @@
       fillOpacity: 0.6
     });
 
-    marcador.bindPopup(`<div class="popup-glass">${coberto ? '✅' : '❌'} ${nome}</div>`);
-  });
+    marcador.bindPopup(`
+  <div class="popup-glass">
+    ${coberto ? '✅' : '❌'} ${nome}<br>
+    <button onclick="verPerfilElevacao('${nome}', ${centro.lat}, ${centro.lng})" class="text-xs text-blue-600 hover:underline mt-1">📉 Ver Elevação</button>
+  </div>
+ `);
 
   const fora = Object.values(pivotsMap).filter(m => m.options.fillColor === 'red').length;
   document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${fora}`;
@@ -422,7 +432,7 @@ removerBtn.addEventListener("click", () => {
       iconUrl: "https://version-test.onrender.com/icone-torre",
       iconSize: [28, 28],
       iconAnchor: [14, 28],
-      popupAnchor: [0, -30]
+      popupAnchor: [0, 35]
     });
 
     marcadorAntena = L.marker([antenaGlobal.lat, antenaGlobal.lon], { icon: antenaIcon })
@@ -433,8 +443,8 @@ removerBtn.addEventListener("click", () => {
       icon: L.divIcon({
         className: 'label-pivo',
         html: antenaGlobal.nome || 'Antena',
-        iconSize: [80, 20],
-        iconAnchor: [40, -10]
+        iconSize: [60, 20],
+        iconAnchor: [30, 45]
       })
     }).addTo(map);
     marcadoresLegenda.push(labelAntena);
@@ -513,19 +523,30 @@ const iconeBomba = L.icon({
   iconUrl: "https://version-test.onrender.com/static/imagens/homegardenbusiness.png",
   iconSize: [28, 28],
   iconAnchor: [14, 28],
-  popupAnchor: [0, -30]
+  popupAnchor: [0, -14]
 });
 
 // Desenha casas de bomba
-if (data.bombas) {
-  marcadoresBombas = []; // limpa anteriores se houver
-  data.bombas.forEach(bomba => {
-    const marcadorBomba = L.marker([bomba.lat, bomba.lon], { icon: iconeBomba })
-      .addTo(map)
-      .bindPopup(`<div class="popup-glass">🚰 ${bomba.nome}</div>`);
-    marcadoresBombas.push(marcadorBomba); // salva pra depois apagar
-   });
- }
+data.bombas.forEach(bomba => {
+  const marcadorBomba = L.marker([bomba.lat, bomba.lon], { icon: iconeBomba })
+    .addTo(map)
+    .bindPopup(`<div class="popup-glass">🚰 ${bomba.nome}</div>`);
+
+  marcadoresBombas.push(marcadorBomba);
+
+  // Adiciona legenda abaixo da bomba
+  const labelBomba = L.marker([bomba.lat, bomba.lon], {
+    icon: L.divIcon({
+      className: 'label-pivo',
+      html: bomba.nome,
+      iconSize: [60, 20],
+      iconAnchor: [40, -5]
+    })
+  }).addTo(map);
+
+  marcadoresLegenda.push(labelBomba);
+ });
+
 
     // Desenha círculos de cobertura, se existirem
     if (data.ciclos) {
@@ -765,8 +786,8 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
       icon: L.divIcon({
         className: 'label-pivo',
         html: `Repetidora ${id}`,
-        iconSize: [80, 20],
-        iconAnchor: [40, -10]
+        iconSize: [60, 20],
+        iconAnchor: [30, 45]
       })
     }).addTo(map);
     marcadoresLegenda.push(labelRepetidora);
