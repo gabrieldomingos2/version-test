@@ -361,7 +361,7 @@ async def simular_manual(params: dict):
     imagem_local_url = f"https://version-test.onrender.com/static/imagens/{nome_arquivo}"
 
     # Recarrega os pivôs reais do KMZ
-    _, pivos_atualizados, _ = parse_kmz("arquivos/entrada.kmz")
+    _, pivos_atualizados, _, _ = parse_kmz("arquivos/entrada.kmz")
     pivos_anteriores = params.get("pivos_atuais", [])
 
     # Detecta os pivôs fora da cobertura usando a nova imagem da repetidora

@@ -126,6 +126,7 @@
 
 
   </style>
+
 </head>
 
 <body class="bg-gray-900 text-white overflow-hidden">
@@ -139,40 +140,33 @@
   <!-- Botão para abrir painel de repetidoras -->
   <button id="toggle-repetidoras" class="glass-button absolute top-4 right-28 z-[9999]">📍</button>
 
-  <!-- Contêiner pai para alinhar os dois painéis fixos no canto direito -->
-<div class="absolute top-20 right-4 flex flex-col items-end space-y-2 z-[9998]">
-  
   <!-- Painel de dados da simulação -->
-  <div id="painel-dados" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden">
-  <h2 class="text-lg font-bold mb-2">📊 Dados da Simulação</h2>
-
-  <div class="flex justify-between items-center mb-2">
-    <span class="font-semibold text-sm text-green-300">📋 Copiar</span>
-    <button onclick="copiarPivosFora()" class="text-xs text-green-400 hover:underline">Copiar</button>
+  <div id="painel-dados" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 top-20 z-[9998]">
+    <h2 class="text-lg font-bold mb-2">📊 Dados da Simulação</h2>
+    <div class="flex justify-between items-center mb-2">
+      <span class="font-semibold text-sm text-green-300">📋 Copiar</span>
+      <button onclick="copiarPivosFora()" class="text-xs text-green-400 hover:underline">Copiar</button>
+    </div>
+    <p id="total-pivos" class="mb-1">Pivôs: --</p>
+    <p id="fora-cobertura" class="mb-1">Fora da cobertura: --</p>
+    <p id="altura-antena-info" class="mb-1">Altura antena principal: -- m</p>
+    <p id="altura-receiver-info" class="mb-1">Altura receiver: -- m</p>
+    <p id="total-repetidoras" class="mb-1">Total Repetidoras: --</p>
+    <p id="total-bombas" class="mb-1 hidden">Casas de bomba: --</p>
   </div>
 
-
-
-  <p id="total-pivos" class="mb-1">Pivôs: --</p>
-  <p id="fora-cobertura" class="mb-1">Fora da cobertura: --</p>
-  <p id="altura-antena-info" class="mb-1">Altura da antena principal: -- m</p>
-  <p id="altura-receiver-info" class="mb-1">Altura receiver: -- m</p>
-  <p id="total-repetidoras" class="mb-1">Total Repetidoras: --</p>
-  <p id="total-bombas" class="mb-1 hidden">Casas de bomba: --</p>
-  </div>
-
-  <div id="painel-repetidoras" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden">
+  <!-- Painel de repetidoras -->
+  <div id="painel-repetidoras" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 top-[calc(20px+320px)] z-[9998]">
     <h2 class="text-lg font-bold mb-2 text-green-300">📍 Repetidoras</h2>
     <div id="lista-repetidoras" class="space-y-2 text-sm"></div>
   </div>
-</div>
 
   <!-- Título central no topo -->
   <div class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 px-6 py-2 rounded-xl shadow-xl top-controls">
     <h1 class="text-2xl font-bold text-green-400 text-center">📡 Beta Version</h1>
   </div>
 
-  <!-- Controles principais (formulário e botões) à esquerda -->
+    <!-- Controles principais (formulário e botões) à esquerda -->
   <div class="absolute top-20 left-4 flex flex-col gap-3 top-controls">
     <form id="formulario" enctype="multipart/form-data" class="flex flex-col gap-2">
       <label for="arquivo" class="glass-button w-56 cursor-pointer text-sm bg-white bg-opacity-5 hover:bg-opacity-10 text-center flex justify-center">
@@ -184,7 +178,7 @@
 
     <button id="simular-btn" class="glass-button bg-blue-600 hover:bg-blue-700 hidden w-56">📶 Rodar Estudo de Sinal</button>
     <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm w-56">🔄 Resetar</button>
-    </div>
+  </div>
 
   <!-- Mensagem temporária -->
   <div id="mensagem" class="hidden absolute bottom-16 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg text-center font-semibold z-50"></div>
@@ -249,12 +243,7 @@
   let pivosOriginais = [];
   let legendasAtivas = true;
   let marcadoresLegenda = [];
-
-  // Exibe ou oculta o painel de dados
-  document.getElementById("toggle-painel").addEventListener("click", () => {
-  document.getElementById("painel-dados").classList.toggle("hidden");
-});
-
+  let marcadoresBombas = [];
 
   // Mostra mensagem temporária (verde ou vermelha)
   const mostrarMensagem = (texto, tipo = 'sucesso') => {
@@ -315,7 +304,6 @@
   const fora = Object.values(pivotsMap).filter(m => m.options.fillColor === 'red').length;
   document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${fora}`;
 }
-
 
 </script>
 
@@ -530,12 +518,14 @@ const iconeBomba = L.icon({
 
 // Desenha casas de bomba
 if (data.bombas) {
+  marcadoresBombas = []; // limpa anteriores se houver
   data.bombas.forEach(bomba => {
-    L.marker([bomba.lat, bomba.lon], { icon: iconeBomba })
+    const marcadorBomba = L.marker([bomba.lat, bomba.lon], { icon: iconeBomba })
       .addTo(map)
       .bindPopup(`<div class="popup-glass">🚰 ${bomba.nome}</div>`);
-  });
-  }
+    marcadoresBombas.push(marcadorBomba); // salva pra depois apagar
+   });
+ }
 
     // Desenha círculos de cobertura, se existirem
     if (data.ciclos) {
@@ -641,13 +631,12 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
 </script>
 
 <script>
-
-    document.querySelectorAll(".leaflet-marker-icon").forEach(marker => {
+  // Remove bombas desenhadas diretamente (fallback manual)
+  document.querySelectorAll(".leaflet-marker-icon").forEach(marker => {
     if (marker.src.includes("homegardenbusiness.png")) {
-    marker.remove();
+      marker.remove();
     }
-    });
-
+  });
 
   document.getElementById("resetar-btn").addEventListener("click", () => {
     // Remove marcador da antena
@@ -664,6 +653,12 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
     marcadoresPivos.forEach(m => map.removeLayer(m));
     Object.values(pivotsMap).forEach(m => map.removeLayer(m));
     circulosPivos.forEach(c => map.removeLayer(c));
+
+    // Remove marcadores de bombas
+    if (typeof marcadoresBombas !== 'undefined') {
+      marcadoresBombas.forEach(b => map.removeLayer(b));
+      marcadoresBombas = [];
+    }
 
     // Remove overlays de repetidoras e marcador da imagem da antena
     repetidoras.forEach(r => {
@@ -690,6 +685,9 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
     idsDisponiveis = [];
     coordenadaClicada = null;
     marcadoresLegenda = [];
+    if (typeof marcadoresBombas !== 'undefined') {
+      marcadoresBombas = [];
+    }
 
     // Esconde botões/painéis
     document.getElementById("simular-btn").classList.add("hidden");
@@ -701,10 +699,15 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
     document.getElementById("painel-dados").classList.add("hidden");
     document.getElementById("painel-repetidoras").classList.add("hidden");
 
+    // Esconde contagem de bombas
+    const bombasElemento = document.getElementById("total-bombas");
+    if (bombasElemento) bombasElemento.classList.add("hidden");
+
     // Volta pro zoom original
     map.setView([-15, -55], 5);
   });
 </script>
+
 <script>
   // Clique no mapa → posiciona marcador e abre painel de repetidora
   map.on("click", function (e) {
@@ -949,15 +952,6 @@ repetidoras.forEach(rep => {
   });
 }
 
-  document.getElementById("toggle-repetidoras").addEventListener("click", () => {
-    const painel = document.getElementById("painel-repetidoras");
-    painel.classList.toggle("hidden");
-
-    if (!painel.classList.contains("hidden")) {
-      reposicionarPaineisLaterais();
-    }
-  });
-
   function reposicionarPaineisLaterais() {
   const dados = document.getElementById("painel-dados");
   const repetidoras = document.getElementById("painel-repetidoras");
@@ -985,6 +979,18 @@ repetidoras.forEach(rep => {
     repetidoras.style.top = `${topoAtual}px`;
   }
 }
+
+function togglePainel(id) {
+  const painel = document.getElementById(id);
+  painel.classList.toggle("hidden");
+  reposicionarPaineisLaterais();
+}
+
+// 🔄 MOVE ESTES DOIS PARA AQUI ⬇️
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("toggle-repetidoras").addEventListener("click", () => togglePainel("painel-repetidoras"));
+  document.getElementById("toggle-painel").addEventListener("click", () => togglePainel("painel-dados"));
+});
 
 
 
