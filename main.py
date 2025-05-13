@@ -262,7 +262,7 @@ async def simular_sinal(antena: dict):
     pivos_com_status = detectar_pivos_fora(bounds, pivos)
 
     return {
-        "imagem_salva": "/static/imagens/sinal.png",
+        "imagem_salva": "https://version-test.onrender.com/static/imagens/sinal.png",
         "bounds": bounds,
         "status": "Simulação concluída",
         "pivos": pivos_com_status
