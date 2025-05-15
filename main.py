@@ -1,10 +1,14 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import zipfile, os, xml.etree.ElementTree as ET, httpx, re, json
 from PIL import Image
 from statistics import mean
+import itertools
+import numpy as np
+from shapely.geometry import Point, Polygon
+from math import sqrt
 
 app = FastAPI()
 
@@ -54,14 +58,14 @@ def parse_kmz(caminho_kmz):
                         if any(p in nome_texto for p in ["antena", "torre", "barracão", "galpão", "silo", "caixa", "repetidora"]):
                             match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
                             altura = int(match.group(1)) if match else 15
-                            antena = {"lat": lat, "lon": lon, "altura": altura, "nome": nome.text}
-                        elif "piv\u00f4" in nome_texto:
+                            antena = {"lat": lat, "lon": lon, "altura": altura, "altura_receiver": 3, "nome": nome.text}
+                        elif "pivô" in nome_texto:
                             pivos.append({"nome": nome.text.strip(), "lat": lat, "lon": lon})
                         elif "casa de bomba" in nome_texto or "irripump" in nome_texto:
                             bombas.append({"nome": nome.text.strip(), "lat": lat, "lon": lon})
 
                     linha = placemark.find(".//kml:LineString/kml:coordinates", ns)
-                    if nome is not None and linha is not None and "medida do c\u00edrculo" in nome.text.lower():
+                    if nome is not None and linha is not None and "medida do círculo" in nome.text.lower():
                         coords_texto = linha.text.strip().split()
                         coords = []
                         for c in coords_texto:
@@ -80,8 +84,8 @@ def parse_kmz(caminho_kmz):
         if not nome or not coords:
             continue
 
-        nome_normalizado = nome.lower().replace("medida do c\u00edrculo", "").strip()
-        nome_virtual = f"Piv\u00f4 {nome_normalizado}".strip()
+        nome_normalizado = nome.lower().replace("medida do círculo", "").strip()
+        nome_virtual = f"Pivô {nome_normalizado}".strip()
 
         if nome_virtual.lower() in nomes_existentes:
             continue
@@ -92,13 +96,13 @@ def parse_kmz(caminho_kmz):
 
         for i in range(len(coords)):
             for j in range(i + 1, len(coords)):
-                lat1, lon1 = coords[i]
-                lat2, lon2 = coords[j]
-                dist = ((lat1 - lat2)**2 + (lon1 - lon2)**2) ** 0.5
+                lat1, lon1 = coords[i][:2]
+                lat2, lon2 = coords[j][:2]
+                dist = ((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2) ** 0.5
                 if dist > max_dist:
                     max_dist = dist
-                    ponto_a = coords[i]
-                    ponto_b = coords[j]
+                    ponto_a = coords[i][:2]
+                    ponto_b = coords[j][:2]
 
         if max_dist > 0.0005:
             centro_lat = (ponto_a[0] + ponto_b[0]) / 2
@@ -110,7 +114,7 @@ def parse_kmz(caminho_kmz):
             centro_lon = mean(lons)
 
         if not re.search(r"\d+", nome_virtual):
-            nome_virtual = f"Piv\u00f4 {contador_virtual}"
+            nome_virtual = f"Pivô {contador_virtual}"
             contador_virtual += 1
 
         pivos.append({
@@ -119,9 +123,11 @@ def parse_kmz(caminho_kmz):
             "lon": centro_lon
         })
 
-        print(f"[DEBUG] {nome_virtual} \u2192 Lat: {centro_lat:.6f}, Lon: {centro_lon:.6f}")
+        print(f"[DEBUG] {nome_virtual} → Lat: {centro_lat:.6f}, Lon: {centro_lon:.6f}")
 
     return antena, pivos, ciclos, bombas
+
+
 
 def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png", pivos_existentes=[]):
     
@@ -161,35 +167,6 @@ def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png"
 
 import json  # garante que esteja no topo
 
-def gerar_linha_reta_antena_pivo(lat1, lon1, lat2, lon2, pontos=30):
-    """Gera coordenadas entre antena e pivô"""
-    return [
-        (
-            lat1 + (lat2 - lat1) * i / (pontos - 1),
-            lon1 + (lon2 - lon1) * i / (pontos - 1)
-        )
-        for i in range(pontos)
-    ]
-
-async def consultar_elevacao_opentopo(pontos):
-    """
-    Consulta a API OpenTopoData com uma lista de (lat, lon) e retorna as elevações.
-    """
-    url = "https://api.opentopodata.org/v1/srtm90m"
-    coords_str = "|".join(f"{lat},{lon}" for lat, lon in pontos)
-    params = {"locations": coords_str}
-
-    async with httpx.AsyncClient() as client:
-        resposta = await client.get(url, params=params)
-
-    if resposta.status_code != 200:
-        raise Exception(f"Erro na consulta à OpenTopoData: {resposta.text}")
-
-    dados = resposta.json().get("results", [])
-    elevacoes = [item.get("elevation", 0) for item in dados]
-    return elevacoes
-
-
 @app.post("/processar_kmz")
 async def processar_kmz(file: UploadFile = File(...)):
     try:
@@ -220,11 +197,11 @@ async def processar_kmz(file: UploadFile = File(...)):
                 json.dump(coords_fazenda, f)
 
         return {
-         "antena": antena,
-         "pivos": pivos,
-         "ciclos": ciclos,
-         "bombas": bombas
-         }
+            "antena": antena,
+            "pivos": pivos,
+            "ciclos": ciclos,
+            "bombas": bombas
+        }
 
     except Exception as e:
         print("❌ Erro em /processar_kmz:", str(e))
@@ -234,6 +211,10 @@ async def processar_kmz(file: UploadFile = File(...)):
 
 @app.post("/simular_sinal")
 async def simular_sinal(antena: dict):
+    print("📡 Antena recebida:", antena)
+    
+    if not antena or not all(k in antena for k in ("lat", "lon", "altura")):
+        return {"erro": "Dados incompletos para simulação. Antena:", "antena": antena}
     payload = {
         "version": "CloudRF-API-v3.23",
         "site": "Brazil V6",
@@ -300,6 +281,11 @@ async def simular_sinal(antena: dict):
 
 @app.post("/simular_manual")
 async def simular_manual(params: dict):
+    print("🚀 Dados recebidos em /simular_manual:", params)
+
+    if not all(k in params for k in ("lat", "lon", "pivos_atuais")):
+        return {"erro": "Dados incompletos recebidos para simulação manual", "dados": params}
+
     payload = {
         "version": "CloudRF-API-v3.23",
         "site": "Manual Entry",
@@ -456,44 +442,150 @@ async def reavaliar_pivos(data: dict):
     except Exception as e:
         return {"erro": f"Falha ao reavaliar pivôs: {str(e)}"}
 
+
+from math import sqrt
+
 @app.post("/perfil_elevacao")
-async def perfil_elevacao(payload: dict):
+async def perfil_elevacao(req: dict):
+    import httpx
 
-    try:
-        lat1, lon1 = payload["antena"]["lat"], payload["antena"]["lon"]
-        lat2, lon2 = payload["pivo"]["lat"], payload["pivo"]["lon"]
+    pontos = req.get("pontos", [])
+    alt1 = req.get("altura_antena", 15)
+    alt2 = req.get("altura_receiver", 3)
 
-        linha = gerar_linha_reta_antena_pivo(lat1, lon1, lat2, lon2, pontos=30)
-        elevacoes = await consultar_elevacao_opentopo(linha)
+    if len(pontos) < 2:
+        return {"erro": "Informe pelo menos dois pontos"}
 
-        # Cálculo da linha reta entre os dois extremos
-        altura_antena = payload["antena"].get("altura", 15)
-        altura_receiver = payload["pivo"].get("altura_receiver", 3)
+    steps = 50
+    amostrados = [
+        (
+            pontos[0][0] + (pontos[1][0] - pontos[0][0]) * i / steps,
+            pontos[0][1] + (pontos[1][1] - pontos[0][1]) * i / steps
+        )
+        for i in range(steps + 1)
+    ]
 
-        h_inicial = altura_antena
-        h_final = elevacoes[-1] + altura_receiver
+    coords_param = "|".join([f"{lat},{lon}" for lat, lon in amostrados])
+    url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
 
-        distancia_total = len(elevacoes) - 1
-        linha_visada = [
-            h_inicial + (h_final - h_inicial) * i / distancia_total
-            for i in range(len(elevacoes))
-        ]
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url)
 
-        bloqueios = [
-            {"indice": i, "distancia": i, "elevacao": elevacoes[i]}
-            for i in range(len(elevacoes))
-            if elevacoes[i] > linha_visada[i]
-        ]
+    dados = resp.json()
+    elevs = [r["elevation"] for r in dados["results"]]
 
-        resposta = {
-            "coords": linha,
-            "elevacoes": elevacoes,
-            "linha_visada": linha_visada,
-            "bloqueios": bloqueios,
-            "diagnostico": "🔴 Obstáculo detectado" if bloqueios else "🟢 Linha de visada limpa"
+    elev1 = elevs[0] + alt1
+    elev2 = elevs[-1] + alt2
+    linha_visada = [elev1 + i * (elev2 - elev1) / steps for i in range(steps + 1)]
+
+    margem_m = 1.5
+    bloqueio = None
+    debug_lista = []
+
+    for i in range(1, steps):
+        dif = elevs[i] - linha_visada[i]
+        debug_lista.append({
+            "i": i,
+            "elev": elevs[i],
+            "visada": linha_visada[i],
+            "dif": round(dif, 2)
+        })
+        if dif > margem_m:
+            bloqueio = {
+                "lat": amostrados[i][0],
+                "lon": amostrados[i][1],
+                "elev": elevs[i],
+                "visada": linha_visada[i],
+                "dif": round(dif, 2)
+            }
+            break
+
+    return {
+        "bloqueio": bloqueio,
+        "elevacao": elevs,
+        "linha_visada": linha_visada,
+        "status": "Bloqueado" if bloqueio else "Visada limpa",
+        "debug": debug_lista[:5] + [{"...": "omitido"}] + debug_lista[-5:]
+    }
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Endpoint inteligente: sugerir_repetidora_progressiva
+@app.post("/sugerir_repetidora_progressiva")
+async def sugerir_repetidora_progressiva(req: dict = Body(...)):
+    pivos = req.get("pivos", [])
+    torre = req.get("torre", {})
+    alt_torre = torre.get("altura", 15)
+    alt_receiver = torre.get("altura_receiver", 3)
+
+    if not torre or not pivos:
+        return {"erro": "Dados insuficientes: torre e pivos obrigatórios"}
+
+    def distancia(a, b):
+        return sqrt((a["lat"] - b["lat"])**2 + (a["lon"] - b["lon"])**2) * 111000
+
+    async def tem_visada(a, b):
+        coords = [[a["lat"], a["lon"]], [b["lat"], b["lon"]]]
+        payload = {
+            "pontos": coords,
+            "altura_antena": a.get("altura", alt_torre),
+            "altura_receiver": b.get("altura_receiver", alt_receiver)
         }
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.post("https://version-test.onrender.com/perfil_elevacao", json=payload)
+            resp = r.json()
+            return not resp.get("bloqueio")
+        except:
+            return False
 
-        return resposta
+    # Ordena pivôs por distância da torre
+    pivos.sort(key=lambda p: distancia(p, torre))
 
-    except Exception as e:
-        return {"erro": f"Erro ao gerar perfil de elevação: {str(e)}"}
+    cobertos = []
+    repetidoras = []
+    caminhos = []
+
+    for pivo in pivos:
+        conectado = False
+
+        # Tenta direto com a torre
+        if await tem_visada(torre, pivo):
+            caminhos.append({"pivo": pivo["nome"], "recebe_de": "torre"})
+            cobertos.append(pivo)
+            continue
+
+        # Tenta com outros já cobertos (progressivo)
+        for anterior in cobertos[::-1]:
+            if await tem_visada(anterior, pivo):
+                caminhos.append({"pivo": pivo["nome"], "recebe_de": anterior["nome"]})
+                cobertos.append(pivo)
+                conectado = True
+                break
+
+        if not conectado:
+            # Sugere repetidora no meio entre último coberto e este
+            ultimo = cobertos[-1] if cobertos else torre
+            lat = (ultimo["lat"] + pivo["lat"]) / 2
+            lon = (ultimo["lon"] + pivo["lon"]) / 2
+
+            # Consulta elevação
+            url = f"https://api.opentopodata.org/v1/srtm90m?locations={lat},{lon}"
+            elev = 0
+            try:
+                async with httpx.AsyncClient() as client:
+                    r = await client.get(url)
+                    elev = r.json()["results"][0]["elevation"]
+            except:
+                pass
+
+            nome_rep = f"Repetidora_{len(repetidoras) + 1}"
+            rep = {"lat": lat, "lon": lon, "elev": elev, "nome": nome_rep, "entre": [ultimo["nome"], pivo["nome"]]}
+            repetidoras.append(rep)
+            caminhos.append({"pivo": pivo["nome"], "recebe_de": nome_rep})
+            cobertos.append(pivo)
+
+    return {
+        "repetidoras_sugeridas": repetidoras,
+        "caminhos_de_sinal": caminhos
+    }

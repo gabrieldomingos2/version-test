@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -71,14 +72,16 @@
     }
 
     .label-pivo {
-      color: white;
-      font-size: 0.75rem;
-      font-weight: bold;
-      text-align: center;
-      text-shadow: 0 0 3px black;
-      pointer-events: none;
-      white-space: nowrap;
-    }
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-shadow: 0 0 3px black;
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
 
     .popup-glass {
       backdrop-filter: blur(8px);
@@ -109,8 +112,7 @@
 }
 
 #painel-repetidoras {
-  max-height: 300px;
-  overflow-y: auto;
+  margin-top: 12px;
 }
 
 #painel-dados,
@@ -126,12 +128,41 @@
   transform: translateY(0);
 }
 
+.linha-futurista {
+  stroke: #00ffff;
+  stroke-width: 3;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: growLine 2.2s ease-out forwards;
+  opacity: 1;
+}
+
+@keyframes growLine {
+  0% {
+    stroke-dashoffset: 1000;
+    stroke-opacity: 0.2;
+  }
+  30% {
+    stroke-opacity: 0.8;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    stroke-opacity: 1;
+  }
+}
+
+.popup-balao {
+  background: white;
+  padding: 10px 14px;
+  border-radius: 10px;
+  text-align: center;
+  font-family: sans-serif;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  max-width: 250px;
+}
 
   </style>
-
 </head>
-
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
 <body class="bg-gray-900 text-white overflow-hidden">
 
@@ -155,8 +186,8 @@
     </div>
     <p id="total-pivos" class="mb-1">Pivôs: --</p>
     <p id="fora-cobertura" class="mb-1">Fora da cobertura: --</p>
-    <p id="altura-antena-info" class="mb-1">Altura antena principal: -- m</p>
-    <p id="altura-receiver-info" class="mb-1">Altura receiver: -- m</p>
+    <p id="altura-antena-info" class="mb-1">Antena principal: -- m</p>
+    <p id="altura-receiver-info" class="mb-1">Receiver: -- m</p>
     <p id="total-repetidoras" class="mb-1">Total Repetidoras: --</p>
     <p id="total-bombas" class="mb-1 hidden">Casas de bomba: --</p>
   </div>
@@ -172,7 +203,7 @@
     <h1 class="text-2xl font-bold text-green-400 text-center">📡 Beta Version</h1>
   </div>
 
-    <!-- Controles principais (formulário e botões) à esquerda -->
+  <!-- Controles principais (formulário e botões) à esquerda -->
   <div class="absolute top-20 left-4 flex flex-col gap-3 top-controls">
     <form id="formulario" enctype="multipart/form-data" class="flex flex-col gap-2">
       <label for="arquivo" class="glass-button w-56 cursor-pointer text-sm bg-white bg-opacity-5 hover:bg-opacity-10 text-center flex justify-center">
@@ -183,6 +214,13 @@
     </form>
 
     <button id="simular-btn" class="glass-button bg-blue-600 hover:bg-blue-700 hidden w-56">📶 Rodar Estudo de Sinal</button>
+      <button id="btn-diagnostico" class="glass-button bg-yellow-600 hover:bg-yellow-700 w-56">
+      📈 Diagnóstico de Visada
+    </button>
+    <button onclick="sugerirRepetidoraTriangular()" class="glass-button absolute top-4 right-80 z-[9999]">
+  🧠 AI Sugere
+</button>
+
     <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm w-56">🔄 Resetar</button>
   </div>
 
@@ -199,7 +237,7 @@
   </div>
 
   <!-- Painel flutuante para configurar uma repetidora manual -->
-  <div id="painel-repetidora" class="bg-black bg-opacity-60 p-3 rounded-xl shadow-lg w-56 absolute left-4 top-64 z-[9999] hidden">
+  <div id="painel-repetidora" class="bg-black bg-opacity-60 p-3 rounded-xl shadow-lg w-56 absolute left-4 top-72 z-[9999] hidden">
     <div class="flex justify-between items-center mb-2">
       <h2 class="font-bold text-green-300">➕ Repetidora</h2>
       <button onclick="document.getElementById('painel-repetidora').classList.add('hidden')" class="text-red-400 font-bold">✖</button>
@@ -269,8 +307,8 @@
   function atualizarPainel(pivos, antena, receiverAltura = 3, bombas = []) {
   document.getElementById("total-pivos").textContent = `Pivôs: ${pivos.length}`;
   document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${pivos.filter(p => p.fora).length}`;
-  document.getElementById("altura-antena-info").textContent = `Altura da antena principal: ${antena.altura} m`;
-  document.getElementById("altura-receiver-info").textContent = `Altura receiver: ${receiverAltura} m`;
+  document.getElementById("altura-antena-info").textContent = `Antena principal: ${antena.altura} m`;
+  document.getElementById("altura-receiver-info").textContent = `Receiver: ${receiverAltura} m`;
   document.getElementById("total-repetidoras").textContent = `Total Repetidoras: ${repetidoras.length}`;
 
   const bombasElemento = document.getElementById("total-bombas");
@@ -280,8 +318,7 @@
   } else {
     bombasElemento.classList.add("hidden");
   }
-  }
-
+   }
 
   // 🔁 Reavalia os pivôs com base nas camadas visíveis de sinal no mapa
   function reavaliarPivosSemCobertura() {
@@ -310,6 +347,7 @@
   const fora = Object.values(pivotsMap).filter(m => m.options.fillColor === 'red').length;
   document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${fora}`;
 }
+
 
 </script>
 
@@ -417,11 +455,11 @@ removerBtn.addEventListener("click", () => {
     if (marcadorAntena) map.removeLayer(marcadorAntena);
     Object.values(pivotsMap).forEach(m => map.removeLayer(m));
     circulosPivos.forEach(c => map.removeLayer(c));
-    
-    circulosPivos = [];
+
     marcadoresPivos = [];
     circulosPivos = [];
     pivotsMap = {};
+
 
     // Ícone da antena
     const antenaIcon = L.icon({
@@ -440,7 +478,7 @@ removerBtn.addEventListener("click", () => {
         className: 'label-pivo',
         html: antenaGlobal.nome || 'Antena',
         iconSize: [60, 20],
-        iconAnchor: [30, 45]
+        iconAnchor: [35, 45]
       })
     }).addTo(map);
     marcadoresLegenda.push(labelAntena);
@@ -479,7 +517,7 @@ toggleAntena.addEventListener("change", () => {
       reavaliarPivosViaAPI();
     });
   });
- });
+});
 
 
 const controles = document.createElement("div");
@@ -492,27 +530,33 @@ painelRepetidoras.appendChild(itemAntena);
 
 
     // Desenha pivôs no mapa
-    data.pivos.forEach(pivo => {
-      const marker = L.circleMarker([pivo.lat, pivo.lon], {
-        radius: 6,
-        color: 'red',
-        fillColor: 'red',
-        fillOpacity: 0.6
-      }).addTo(map).bindPopup(`<div class="popup-glass">✅ ${pivo.nome}</div>`);
+data.pivos.forEach(pivo => {
+  const marker = L.circleMarker([pivo.lat, pivo.lon], {
+    radius: 6,
+    color: 'red',
+    fillColor: 'red',
+    fillOpacity: 0.6
+  }).addTo(map).bindPopup(`<div class="popup-glass">✅ ${pivo.nome}</div>`);
 
-      marcadoresPivos.push(marker);
-      pivotsMap[pivo.nome] = marker;
+  marcadoresPivos.push(marker);
+  pivotsMap[pivo.nome] = marker;
 
-      const label = L.marker([pivo.lat, pivo.lon], {
-        icon: L.divIcon({
-          className: 'label-pivo',
-          html: pivo.nome,
-          iconSize: [60, 20],
-          iconAnchor: [30, -10]
-        })
-      }).addTo(map);
-      marcadoresLegenda.push(label);
-    });
+  const label = L.marker([pivo.lat, pivo.lon], {
+    icon: L.divIcon({
+      className: 'label-pivo',
+      html: pivo.nome,
+      iconSize: [60, 20],
+      iconAnchor: [25, -10]
+    })
+  }).addTo(map);
+  marcadoresLegenda.push(label);
+});
+
+// 🧠 Marca como fora antes da simulação e mostra no painel
+data.pivos.forEach(p => p.fora = true);
+atualizarPainel(data.pivos, antenaGlobal, antenaGlobal.altura_receiver, data.bombas);
+document.getElementById("painel-dados").classList.remove("hidden");
+
 
     // Ícone das casas de bomba
 const iconeBomba = L.icon({
@@ -535,16 +579,15 @@ data.bombas.forEach(bomba => {
     icon: L.divIcon({
       className: 'label-pivo',
       html: bomba.nome,
-      iconSize: [60, 20],
-      iconAnchor: [40, -5]
+      iconSize: [28, 28],
+      iconAnchor: [50, -5]
     })
   }).addTo(map);
 
   marcadoresLegenda.push(labelBomba);
  });
 
-
-    // Desenha círculos de cobertura, se existirem
+ // Desenha círculos de cobertura, se existirem
     if (data.ciclos) {
       circulosPivos = data.ciclos.map(circulo =>
         L.polygon(circulo.coordenadas, {
@@ -562,6 +605,8 @@ data.bombas.forEach(bomba => {
 
     mostrarMensagem("✅ KMZ carregado.");
     document.getElementById("simular-btn").classList.remove("hidden");
+    atualizarPainel(data.pivos, antenaGlobal, antenaGlobal.altura_receiver || 3, data.bombas);
+    document.getElementById("painel-dados").classList.remove("hidden");
   });
 </script>
 <script>
@@ -611,19 +656,15 @@ data.bombas.forEach(bomba => {
       data.pivos.forEach(pivo => {
         const cor = pivo.fora ? 'red' : 'green';
 
-         const marcador = L.circleMarker([pivo.lat, pivo.lon], {
-         radius: 6,
-         color: cor,
-         fillColor: cor,
-         fillOpacity: 0.6,
-         className: pivo.fora ? 'circulo-futurista' : ''
-         }).addTo(map).bindPopup(
-         `<div class="popup-glass">
-         ${pivo.fora ? '❌' : '✅'} ${pivo.nome}<br>
-        <button onclick='mostrarGraficoElevacao(${JSON.stringify(pivo)})' class="mt-1 bg-blue-600 hover:bg-blue-700 text-white px-1.5 py-0.5 rounded text-[10px]">
-        </div>`
+        const marcador = L.circleMarker([pivo.lat, pivo.lon], {
+          radius: 6,
+          color: cor,
+          fillColor: cor,
+          fillOpacity: 0.6,
+          className: pivo.fora ? 'circulo-futurista' : ''
+        }).addTo(map).bindPopup(
+          `<div class="popup-glass">${pivo.fora ? '❌' : '✅'} ${pivo.nome}</div>`
         );
-
 
         marcadoresPivos.push(marcador);
         pivotsMap[pivo.nome] = marcador;
@@ -633,21 +674,21 @@ data.bombas.forEach(bomba => {
             className: 'label-pivo',
             html: pivo.nome,
             iconSize: [60, 20],
-            iconAnchor: [30, -10]
+            iconAnchor: [25, -10]
           })
         }).addTo(map);
         marcadoresLegenda.push(label);
       });
 
-      atualizarPainel(data.pivos, antenaGlobal, 3, data.bombas || []);
+      atualizarPainel(data.pivos, antenaGlobal, antenaGlobal.altura_receiver, data.bombas);
       mostrarMensagem("📡 Estudo de sinal concluído com sucesso.");
       const btnSimular = document.getElementById("simular-btn");
-btnSimular.disabled = true;
-btnSimular.classList.add("opacity-50", "cursor-not-allowed");
+      btnSimular.disabled = true;
+      btnSimular.classList.add("opacity-50", "cursor-not-allowed");
 
-    } else {
+      } else {
       mostrarMensagem("❌ Falha na simulação.", "erro");
-    }
+      }
   });
 </script>
 
@@ -787,7 +828,7 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
         className: 'label-pivo',
         html: `Repetidora ${id}`,
         iconSize: [60, 20],
-        iconAnchor: [30, 45]
+        iconAnchor: [40, 45]
       })
     }).addTo(map);
     marcadoresLegenda.push(labelRepetidora);
@@ -868,7 +909,7 @@ btnSimular.classList.add("opacity-50", "cursor-not-allowed");
             className: 'label-pivo',
             html: pivo.nome,
             iconSize: [60, 20],
-            iconAnchor: [30, -10]
+            iconAnchor: [25, -10]
           })
         }).addTo(map);
         marcadoresLegenda.push(label);
@@ -1011,77 +1052,128 @@ function togglePainel(id) {
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("toggle-repetidoras").addEventListener("click", () => togglePainel("painel-repetidoras"));
   document.getElementById("toggle-painel").addEventListener("click", () => togglePainel("painel-dados"));
-});
+ });
 
-async function mostrarGraficoElevacao(pivo) {
-  if (!antenaGlobal || !pivo) return;
 
-  mostrarLoader(true);
-  const payload = {
-    antena: antenaGlobal,
-    pivo: {
-      lat: pivo.lat,
-      lon: pivo.lon,
-      altura_receiver: 3
+let linhasDiagnostico = [];
+let marcadoresBloqueio = [];
+
+document.getElementById("btn-diagnostico").addEventListener("click", async () => {
+  if (!antenaGlobal || Object.keys(pivotsMap).length === 0) return;
+
+  // Limpa diagnósticos anteriores
+  linhasDiagnostico.forEach(l => map.removeLayer(l));
+  marcadoresBloqueio.forEach(m => map.removeLayer(m));
+  linhasDiagnostico = [];
+  marcadoresBloqueio = [];
+
+  for (const [nome, marcador] of Object.entries(pivotsMap)) {
+    const latlonAntena = [antenaGlobal.lat, antenaGlobal.lon];
+    const latlonPivo = [marcador.getLatLng().lat, marcador.getLatLng().lng];
+
+    // 🔷 Desenha linha azul entre antena e pivô
+    const linha = L.polyline([latlonAntena, latlonPivo], {
+    className: 'linha-futurista'
+    }).addTo(map);
+    linhasDiagnostico.push(linha);
+
+    // Após 2 segundos, troca a classe para uma linha estável
+    setTimeout(() => {
+    if (linha._path) {
+    linha._path.classList.remove('linha-futurista');
+    linha._path.style.stroke = '#00ffff';
+    linha._path.style.strokeWidth = '2';
+    linha._path.style.strokeDasharray = 'none';
     }
-  };
+    }, 2000);
 
-  const res = await fetch("https://version-test.onrender.com/perfil_elevacao", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    const payload = {
+    pontos: [
+    [antenaGlobal.lat, antenaGlobal.lon],
+    [marcador.getLatLng().lat, marcador.getLatLng().lng]
+    ],
+    altura_antena: antenaGlobal.altura ?? 15,
+    altura_receiver: antenaGlobal.altura_receiver ?? 3
+    };
+
+
+    try {
+      const res = await fetch("https://version-test.onrender.com/perfil_elevacao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (data.bloqueio) {
+        const ponto = data.bloqueio;
+
+        const bloqueioIcon = L.divIcon({
+          className: 'label-pivo',
+          html: '⛰️ Bloqueio',
+          iconSize: [60, 20],
+          iconAnchor: [30, 10]
+        });
+
+        const marker = L.marker([ponto.lat, ponto.lon], { icon: bloqueioIcon })
+  .addTo(map)
+  .bindPopup(`
+    <div class="popup-glass text-center leading-snug">
+      ⛔ Elevação acima da linha de visada<br>
+      entre a antena e <strong>${nome}</strong>
+    </div>
+  `);
+        
+        marcadoresBloqueio.push(marker);
+      }
+    } catch (error) {
+      console.error(`Erro no diagnóstico do pivô ${nome}:`, error);
+    }
+  }
+
+  mostrarMensagem("🔍 Diagnóstico de visada concluído.");
+ });
+
+
+async function sugerirRepetidoraTriangular() {
+  const pivosExtraidos = Object.entries(pivotsMap).map(([nome, marcador]) => {
+    const { lat, lng } = marcador.getLatLng();
+    return { nome, lat, lon: lng };
   });
 
-  const data = await res.json();
-  mostrarLoader(false);
-
-  if (data.erro) {
-    mostrarMensagem("❌ Falha no perfil de elevação.", "erro");
+  if (pivosExtraidos.length < 3) {
+    alert("É necessário pelo menos 3 pivôs para gerar sugestão.");
     return;
   }
 
-  // Dados para o gráfico
-  const distancias = data.coords.map((_, i) => i);
-  const elevacao = data.elevacoes;
-  const visada = data.linha_visada;
-
-  Plotly.newPlot("grafico-elevacao", [
-    {
-      x: distancias,
-      y: elevacao,
-      mode: "lines",
-      name: "Terreno",
-      line: { color: "brown", width: 3 }
-    },
-    {
-      x: distancias,
-      y: visada,
-      mode: "lines",
-      name: "Linha de Visada",
-      line: { color: "green", dash: "dot" }
-    }
-  ], {
-    margin: { t: 20 },
-    xaxis: { title: "Distância (pontos)" },
-    yaxis: { title: "Altitude (m)" }
+  const resp = await fetch("https://version-test.onrender.com/sugerir_repetidora_triangular", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pivos: pivosExtraidos })
   });
 
-  // Diagnóstico
-  document.getElementById("info-diagnostico").textContent = data.diagnostico;
-  document.getElementById("modal-elevacao").classList.remove("hidden");
- }
+  const data = await resp.json();
 
+  if (data.ponto_sugerido) {
+    const { lat, lon, elev } = data.ponto_sugerido;
+
+    const iconeRepetidora = L.icon({
+      iconUrl: "https://version-test.onrender.com/icone-torre",
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+      popupAnchor: [0, -30]
+    });
+
+    const marker = L.marker([lat, lon], { icon: iconeRepetidora }).addTo(map);
+    marker.bindPopup(`
+      📡 <strong>Repetidora sugerida</strong><br>
+      <b>Altura:</b> ${elev.toFixed(1)} m
+    `).openPopup();
+  } else {
+    alert("Nenhum triângulo viável encontrado.");
+  }
+}
 
 </script>
-
-<!-- Modal para exibir gráfico de elevação -->
-<div id="modal-elevacao" class="hidden fixed inset-0 bg-black bg-opacity-80 z-[99999] flex items-center justify-center">
-  <div class="bg-white text-black rounded-lg p-4 shadow-xl w-[90%] max-w-4xl relative">
-    <button onclick="document.getElementById('modal-elevacao').classList.add('hidden')" class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded">✖</button>
-    <h2 class="text-xl font-bold mb-4 text-center">📈 Perfil de Elevação</h2>
-    <div id="grafico-elevacao" class="w-full h-[400px]"></div>
-    <p id="info-diagnostico" class="text-center mt-4 font-semibold text-lg"></p>
-  </div>
-</div>
 </body>
 </html>
