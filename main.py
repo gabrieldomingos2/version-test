@@ -490,8 +490,6 @@ async def get_elev_mapbox(lat, lon, zoom=17):
 
 @app.post("/perfil_elevacao")
 async def perfil_elevacao(req: dict):
-    import httpx
-
     pontos = req.get("pontos", [])
     alt1 = req.get("altura_antena", 15)
     alt2 = req.get("altura_receiver", 3)
@@ -508,25 +506,8 @@ async def perfil_elevacao(req: dict):
         for i in range(steps + 1)
     ]
 
-    # Função de elevação com fallback
-    async def get_elev_duopo(lat, lon):
-        try:
-            elev = await get_elev_mapbox(lat, lon)
-            if elev is not None and elev > 0:
-                return elev
-        except:
-            pass
-
-        # Fallback para OpenTopoData
-        url = f"https://api.opentopodata.org/v1/srtm90m?locations={lat},{lon}"
-        async with httpx.AsyncClient() as client:
-            res = await client.get(url)
-            if res.status_code == 200:
-                data = res.json()
-                return data["results"][0]["elevation"]
-        return 0
-
-    elevs = [await get_elev_duopo(lat, lon) for lat, lon in amostrados]
+    # Agora usa só o Mapbox (sem fallback)
+    elevs = [await get_elev_mapbox(lat, lon) for lat, lon in amostrados]
 
     elev1 = elevs[0] + alt1
     elev2 = elevs[-1] + alt2
