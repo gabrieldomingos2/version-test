@@ -589,3 +589,42 @@ async def sugerir_repetidora_progressiva(req: dict = Body(...)):
         "repetidoras_sugeridas": repetidoras,
         "caminhos_de_sinal": caminhos
     }
+
+@app.post("/sugerir_repetidora_triangular")
+async def sugerir_repetidora_triangular(data: dict):
+    pivos = data.get("pivos", [])
+
+    if len(pivos) < 3:
+        return {"erro": "Pelo menos 3 pivôs são necessários"}
+
+    melhor_ponto = None
+    maior_area = 0
+
+    for trio in itertools.combinations(pivos, 3):
+        a = (trio[0]["lat"], trio[0]["lon"])
+        b = (trio[1]["lat"], trio[1]["lon"])
+        c = (trio[2]["lat"], trio[2]["lon"])
+
+        area = abs(
+            a[0] * (b[1] - c[1]) +
+            b[0] * (c[1] - a[1]) +
+            c[0] * (a[1] - b[1])
+        ) / 2
+
+        if area > maior_area:
+            maior_area = area
+            lat = (a[0] + b[0] + c[0]) / 3
+            lon = (a[1] + b[1] + c[1]) / 3
+            melhor_ponto = {"lat": lat, "lon": lon}
+
+    if not melhor_ponto:
+        return {"detail": "Not Found"}
+
+    # Elevação do ponto sugerido
+    url = f"https://api.opentopodata.org/v1/srtm90m?locations={melhor_ponto['lat']},{melhor_ponto['lon']}"
+    async with httpx.AsyncClient() as client:
+        resposta = await client.get(url)
+        elev = resposta.json()["results"][0]["elevation"]
+
+    melhor_ponto["elev"] = elev
+    return {"ponto_sugerido": melhor_ponto}
