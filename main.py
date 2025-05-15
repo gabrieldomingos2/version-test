@@ -1,15 +1,27 @@
+# Built-in
+import os
+import re
+import zipfile
+import json
+import math
+import itertools
+import xml.etree.ElementTree as ET
+from io import BytesIO
+
+# External libs
+import httpx
+import numpy as np
+from PIL import Image
+from statistics import mean
+from shapely.geometry import Point, Polygon
+
+# FastAPI
 from fastapi import FastAPI, UploadFile, File, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import zipfile, os, xml.etree.ElementTree as ET, httpx, re, json
-from PIL import Image
-from statistics import mean
-import itertools
-import numpy as np
-from shapely.geometry import Point, Polygon
-from math import sqrt
-import math
+
+
 
 app = FastAPI()
 
@@ -470,8 +482,8 @@ async def get_elev_mapbox(lat, lon, zoom=15):
     url = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{zoom}/{x_tile}/{y_tile}.pngraw?access_token={MAPBOX_TOKEN}"
 
     async with httpx.AsyncClient() as client:
-        r = await client.get(url)
-        img = Image.open(BytesIO(r.content)).convert("RGB")
+        res = await client.get(url)
+    img = Image.open(BytesIO(res.content)).convert("RGB")
     r, g, b = img.getpixel((px, py))
     elevation = -10000 + ((r * 256 * 256 + g * 256 + b) * 0.1)
     return round(elevation, 2)
