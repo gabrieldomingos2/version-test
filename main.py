@@ -522,7 +522,7 @@ async def sugerir_repetidora_progressiva(req: dict = Body(...)):
         return {"erro": "Dados insuficientes: torre e pivos obrigatórios"}
 
     def distancia(a, b):
-        return sqrt((a["lat"] - b["lat"])**2 + (a["lon"] - b["lon"])**2) * 111000
+        return sqrt((a["lat"] - b["lat"])**2 + (a["lon"] - b["lon"])**2) * 111000  # metros
 
     async def tem_visada(a, b):
         coords = [[a["lat"], a["lon"]], [b["lat"], b["lon"]]]
@@ -539,7 +539,7 @@ async def sugerir_repetidora_progressiva(req: dict = Body(...)):
         except:
             return False
 
-    # Ordena pivôs por distância da torre
+    # Ordena pivôs pela distância da torre
     pivos.sort(key=lambda p: distancia(p, torre))
 
     cobertos = []
@@ -549,46 +549,58 @@ async def sugerir_repetidora_progressiva(req: dict = Body(...)):
     for pivo in pivos:
         conectado = False
 
-        # Tenta direto com a torre
+        # 1. Tenta direto da torre
         if await tem_visada(torre, pivo):
             caminhos.append({"pivo": pivo["nome"], "recebe_de": "torre"})
             cobertos.append(pivo)
             continue
 
-        # Tenta com outros já cobertos (progressivo)
+        # 2. Tenta com cobertos próximos
         for anterior in cobertos[::-1]:
-            if await tem_visada(anterior, pivo):
-                caminhos.append({"pivo": pivo["nome"], "recebe_de": anterior["nome"]})
-                cobertos.append(pivo)
-                conectado = True
-                break
+            if distancia(anterior, pivo) < 2000:  # até 2 km entre pivôs
+                if await tem_visada(anterior, pivo):
+                    caminhos.append({"pivo": pivo["nome"], "recebe_de": anterior["nome"]})
+                    cobertos.append(pivo)
+                    conectado = True
+                    break
+                else:
+                    # 3. Se não há visada, sugere repetidora entre eles
+                    lat = (anterior["lat"] + pivo["lat"]) / 2
+                    lon = (anterior["lon"] + pivo["lon"]) / 2
 
-        if not conectado or distancia(torre, pivo) > 2000:
-            # Sugere repetidora no meio entre último coberto e este
-            ultimo = cobertos[-1] if cobertos else torre
-            lat = (ultimo["lat"] + pivo["lat"]) / 2
-            lon = (ultimo["lon"] + pivo["lon"]) / 2
+                    # Consulta elevação
+                    elev = 0
+                    try:
+                        url = f"https://api.opentopodata.org/v1/srtm90m?locations={lat},{lon}"
+                        async with httpx.AsyncClient() as client:
+                            r = await client.get(url)
+                            elev = r.json()["results"][0]["elevation"]
+                    except:
+                        pass
 
-            # Consulta elevação
-            url = f"https://api.opentopodata.org/v1/srtm90m?locations={lat},{lon}"
-            elev = 0
-            try:
-                async with httpx.AsyncClient() as client:
-                    r = await client.get(url)
-                    elev = r.json()["results"][0]["elevation"]
-            except:
-                pass
+                    nome_rep = f"Repetidora_{len(repetidoras) + 1}"
+                    rep = {
+                        "lat": lat,
+                        "lon": lon,
+                        "elev": elev,
+                        "nome": nome_rep,
+                        "entre": [anterior["nome"], pivo["nome"]]
+                    }
+                    repetidoras.append(rep)
+                    caminhos.append({"pivo": pivo["nome"], "recebe_de": nome_rep})
+                    cobertos.append(pivo)
+                    conectado = True
+                    break  # só sugere uma repetidora intermediária por pivô
 
-            nome_rep = f"Repetidora_{len(repetidoras) + 1}"
-            rep = {"lat": lat, "lon": lon, "elev": elev, "nome": nome_rep, "entre": [ultimo["nome"], pivo["nome"]]}
-            repetidoras.append(rep)
-            caminhos.append({"pivo": pivo["nome"], "recebe_de": nome_rep})
-            cobertos.append(pivo)
+        # 4. Se não conectou por nenhum caminho, marca como não alcançável (pode ser adicionado lógica futura)
+        if not conectado:
+            caminhos.append({"pivo": pivo["nome"], "recebe_de": "indefinido"})
 
     return {
         "repetidoras_sugeridas": repetidoras,
         "caminhos_de_sinal": caminhos
     }
+
 
 @app.post("/sugerir_repetidora_triangular")
 async def sugerir_repetidora_triangular(data: dict):
