@@ -1067,37 +1067,32 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
   linhasDiagnostico = [];
   marcadoresBloqueio = [];
 
-  for (const [nome, marcador] of Object.entries(pivotsMap)) {
-    const latlonAntena = [antenaGlobal.lat, antenaGlobal.lon];
-    const latlonPivo = [marcador.getLatLng().lat, marcador.getLatLng().lng];
-
-    // 🔷 Desenha linha azul entre antena e pivô
-    const linha = L.polyline([latlonAntena, latlonPivo], {
-    className: 'linha-futurista'
-    }).addTo(map);
-    linhasDiagnostico.push(linha);
-
-    // Após 2 segundos, troca a classe para uma linha estável
-    setTimeout(() => {
-    if (linha._path) {
-    linha._path.classList.remove('linha-futurista');
-    linha._path.style.stroke = '#00ffff';
-    linha._path.style.strokeWidth = '2';
-    linha._path.style.strokeDasharray = 'none';
-    }
-    }, 2000);
-
-    const payload = {
-    pontos: [
-    [antenaGlobal.lat, antenaGlobal.lon],
-    [marcador.getLatLng().lat, marcador.getLatLng().lng]
-    ],
-    altura_antena: antenaGlobal.altura ?? 15,
-    altura_receiver: antenaGlobal.altura_receiver ?? 3
-    };
-
-
+  const tasks = Object.entries(pivotsMap).map(async ([nome, marcador]) => {
     try {
+      const latlonAntena = [antenaGlobal.lat, antenaGlobal.lon];
+      const latlonPivo = [marcador.getLatLng().lat, marcador.getLatLng().lng];
+
+      // Desenha linha visual inicial
+      const linha = L.polyline([latlonAntena, latlonPivo], {
+        className: 'linha-futurista'
+      }).addTo(map);
+      linhasDiagnostico.push(linha);
+
+      setTimeout(() => {
+        if (linha._path) {
+          linha._path.classList.remove('linha-futurista');
+          linha._path.style.stroke = '#00ffff';
+          linha._path.style.strokeWidth = '2';
+          linha._path.style.strokeDasharray = 'none';
+        }
+      }, 2000);
+
+      const payload = {
+        pontos: [latlonAntena, latlonPivo],
+        altura_antena: antenaGlobal.altura ?? 15,
+        altura_receiver: antenaGlobal.altura_receiver ?? 3
+      };
+
       const res = await fetch("https://version-test.onrender.com/perfil_elevacao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1105,6 +1100,7 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
       });
 
       const data = await res.json();
+
       if (data.bloqueio) {
         const ponto = data.bloqueio;
 
@@ -1116,23 +1112,27 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
         });
 
         const marker = L.marker([ponto.lat, ponto.lon], { icon: bloqueioIcon })
-  .addTo(map)
-  .bindPopup(`
-    <div class="popup-glass text-center leading-snug">
-      ⛔ Elevação acima da linha de visada<br>
-      entre a antena e <strong>${nome}</strong>
-    </div>
-  `);
-        
+          .addTo(map)
+          .bindPopup(`
+            <div class="popup-glass text-center leading-snug">
+              ⛔ Elevação acima da linha de visada<br>
+              entre a antena e <strong>${nome}</strong>
+            </div>
+          `);
+
         marcadoresBloqueio.push(marker);
       }
-    } catch (error) {
-      console.error(`Erro no diagnóstico do pivô ${nome}:`, error);
+    } catch (err) {
+      console.error(`Erro no pivô ${nome}:`, err);
     }
-  }
+  });
+
+  // Aguarda todas as tarefas em paralelo
+  await Promise.all(tasks);
 
   mostrarMensagem("🔍 Diagnóstico de visada concluído.");
- });
+});
+
 
 
 let contadorSugRep = 1;
@@ -1175,13 +1175,13 @@ async function sugerirRepetidoraTriangular() {
     `).openPopup();
 
     const label = L.marker([lat, lon], {
-      icon: L.divIcon({
-        className: 'label-pivo',
-        html: `🔮 ${id}`,
-        iconSize: [80, 20],
-        iconAnchor: [30, 45]
-      })
-    }).addTo(map);
+  icon: L.divIcon({
+    className: 'label-pivo',
+    html: `${id}`,
+    iconSize: [60, 20],
+    iconAnchor: [25, -10]  // 🔁 Agora a legenda aparece logo acima do ícone
+  })
+}).addTo(map);
 
     adicionarRepetidoraNoPainel({
       id,

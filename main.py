@@ -476,7 +476,7 @@ def latlon_to_pixel(lat, lon, zoom, tile_size=256):
     y = (1.0 - math.log(math.tan(lat_rad) + 1 / math.cos(lat_rad)) / math.pi) / 2.0 * n * tile_size
     return int(x) % tile_size, int(y) % tile_size
 
-async def get_elev_mapbox(lat, lon, zoom=15):
+async def get_elev_mapbox(lat, lon, zoom=17):
     x_tile, y_tile = latlon_to_tile(lat, lon, zoom)
     px, py = latlon_to_pixel(lat, lon, zoom)
     url = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{zoom}/{x_tile}/{y_tile}.pngraw?access_token={MAPBOX_TOKEN}"
@@ -513,7 +513,7 @@ async def perfil_elevacao(req: dict):
     linha_visada = [elev1 + i * (elev2 - elev1) / steps for i in range(steps + 1)]
 
     bloqueio = None
-    margem_m = 1.5
+    margem_m = 1.0
     debug_lista = []
 
     for i in range(1, steps):
@@ -535,12 +535,13 @@ async def perfil_elevacao(req: dict):
             break
 
     return {
-        "bloqueio": bloqueio,
-        "elevacao": elevs,
-        "linha_visada": linha_visada,
-        "status": "Bloqueado" if bloqueio else "Visada limpa",
-        "debug": debug_lista[:5] + [{"...": "omitido"}] + debug_lista[-5:]
-    }
+    "bloqueio": bloqueio,
+    "amostrados": amostrados,
+    "elevacao": elevs,
+    "linha_visada": linha_visada,
+    "status": "Bloqueado" if bloqueio else "Visada limpa",
+    "debug": debug_lista[:5] + [{"...": "omitido"}] + debug_lista[-5:]
+}
 
 @app.post("/sugerir_repetidora_triangular")
 async def sugerir_repetidora_triangular(data: dict):
