@@ -9,6 +9,7 @@ import itertools
 import numpy as np
 from shapely.geometry import Point, Polygon
 from math import sqrt
+import math
 
 app = FastAPI()
 
@@ -445,10 +446,38 @@ async def reavaliar_pivos(data: dict):
 
 from math import sqrt
 
+from io import BytesIO
+
+MAPBOX_TOKEN = "pk.eyJ1IjoiMzYzMzUzMzZnYSIsImEiOiJjbWFwc3RuZnUwMjR3MmtvcWJuaHNzc3Z0In0.bZ3f7YAkS-ecazltUA7vwQ"
+
+def latlon_to_tile(lat, lon, zoom):
+    lat_rad = math.radians(lat)
+    n = 2.0 ** zoom
+    x_tile = int((lon + 180.0) / 360.0 * n)
+    y_tile = int((1.0 - math.log(math.tan(lat_rad) + 1 / math.cos(lat_rad)) / math.pi) / 2.0 * n)
+    return x_tile, y_tile
+
+def latlon_to_pixel(lat, lon, zoom, tile_size=256):
+    lat_rad = math.radians(lat)
+    n = 2.0 ** zoom
+    x = (lon + 180.0) / 360.0 * n * tile_size
+    y = (1.0 - math.log(math.tan(lat_rad) + 1 / math.cos(lat_rad)) / math.pi) / 2.0 * n * tile_size
+    return int(x) % tile_size, int(y) % tile_size
+
+async def get_elev_mapbox(lat, lon, zoom=15):
+    x_tile, y_tile = latlon_to_tile(lat, lon, zoom)
+    px, py = latlon_to_pixel(lat, lon, zoom)
+    url = f"https://api.mapbox.com/v4/mapbox.terrain-rgb/{zoom}/{x_tile}/{y_tile}.pngraw?access_token={MAPBOX_TOKEN}"
+
+    async with httpx.AsyncClient() as client:
+        r = await client.get(url)
+        img = Image.open(BytesIO(r.content)).convert("RGB")
+    r, g, b = img.getpixel((px, py))
+    elevation = -10000 + ((r * 256 * 256 + g * 256 + b) * 0.1)
+    return round(elevation, 2)
+
 @app.post("/perfil_elevacao")
 async def perfil_elevacao(req: dict):
-    import httpx
-
     pontos = req.get("pontos", [])
     alt1 = req.get("altura_antena", 15)
     alt2 = req.get("altura_receiver", 3)
@@ -465,21 +494,14 @@ async def perfil_elevacao(req: dict):
         for i in range(steps + 1)
     ]
 
-    coords_param = "|".join([f"{lat},{lon}" for lat, lon in amostrados])
-    url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url)
-
-    dados = resp.json()
-    elevs = [r["elevation"] for r in dados["results"]]
+    elevs = [await get_elev_mapbox(lat, lon) for lat, lon in amostrados]
 
     elev1 = elevs[0] + alt1
     elev2 = elevs[-1] + alt2
     linha_visada = [elev1 + i * (elev2 - elev1) / steps for i in range(steps + 1)]
 
-    margem_m = 1.5
     bloqueio = None
+    margem_m = 1.5
     debug_lista = []
 
     for i in range(1, steps):
@@ -507,100 +529,6 @@ async def perfil_elevacao(req: dict):
         "status": "Bloqueado" if bloqueio else "Visada limpa",
         "debug": debug_lista[:5] + [{"...": "omitido"}] + debug_lista[-5:]
     }
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Endpoint inteligente: sugerir_repetidora_progressiva
-@app.post("/sugerir_repetidora_progressiva")
-async def sugerir_repetidora_progressiva(req: dict = Body(...)):
-    pivos = req.get("pivos", [])
-    torre = req.get("torre", {})
-    alt_torre = torre.get("altura", 15)
-    alt_receiver = torre.get("altura_receiver", 3)
-
-    if not torre or not pivos:
-        return {"erro": "Dados insuficientes: torre e pivos obrigatórios"}
-
-    def distancia(a, b):
-        return sqrt((a["lat"] - b["lat"])**2 + (a["lon"] - b["lon"])**2) * 111000  # metros
-
-    async def tem_visada(a, b):
-        coords = [[a["lat"], a["lon"]], [b["lat"], b["lon"]]]
-        payload = {
-            "pontos": coords,
-            "altura_antena": a.get("altura", alt_torre),
-            "altura_receiver": b.get("altura_receiver", alt_receiver)
-        }
-        try:
-            async with httpx.AsyncClient() as client:
-                r = await client.post("https://version-test.onrender.com/perfil_elevacao", json=payload)
-            resp = r.json()
-            return not resp.get("bloqueio")
-        except:
-            return False
-
-    # Ordena pivôs pela distância da torre
-    pivos.sort(key=lambda p: distancia(p, torre))
-
-    cobertos = []
-    repetidoras = []
-    caminhos = []
-
-    for pivo in pivos:
-        conectado = False
-
-        # 1. Tenta direto da torre
-        if await tem_visada(torre, pivo):
-            caminhos.append({"pivo": pivo["nome"], "recebe_de": "torre"})
-            cobertos.append(pivo)
-            continue
-
-        # 2. Tenta com cobertos próximos
-        for anterior in cobertos[::-1]:
-            if distancia(anterior, pivo) < 2000:  # até 2 km entre pivôs
-                if await tem_visada(anterior, pivo):
-                    caminhos.append({"pivo": pivo["nome"], "recebe_de": anterior["nome"]})
-                    cobertos.append(pivo)
-                    conectado = True
-                    break
-                else:
-                    # 3. Se não há visada, sugere repetidora entre eles
-                    lat = (anterior["lat"] + pivo["lat"]) / 2
-                    lon = (anterior["lon"] + pivo["lon"]) / 2
-
-                    # Consulta elevação
-                    elev = 0
-                    try:
-                        url = f"https://api.opentopodata.org/v1/srtm90m?locations={lat},{lon}"
-                        async with httpx.AsyncClient() as client:
-                            r = await client.get(url)
-                            elev = r.json()["results"][0]["elevation"]
-                    except:
-                        pass
-
-                    nome_rep = f"Repetidora_{len(repetidoras) + 1}"
-                    rep = {
-                        "lat": lat,
-                        "lon": lon,
-                        "elev": elev,
-                        "nome": nome_rep,
-                        "entre": [anterior["nome"], pivo["nome"]]
-                    }
-                    repetidoras.append(rep)
-                    caminhos.append({"pivo": pivo["nome"], "recebe_de": nome_rep})
-                    cobertos.append(pivo)
-                    conectado = True
-                    break  # só sugere uma repetidora intermediária por pivô
-
-        # 4. Se não conectou por nenhum caminho, marca como não alcançável (pode ser adicionado lógica futura)
-        if not conectado:
-            caminhos.append({"pivo": pivo["nome"], "recebe_de": "indefinido"})
-
-    return {
-        "repetidoras_sugeridas": repetidoras,
-        "caminhos_de_sinal": caminhos
-    }
-
 
 @app.post("/sugerir_repetidora_triangular")
 async def sugerir_repetidora_triangular(data: dict):
@@ -633,10 +561,6 @@ async def sugerir_repetidora_triangular(data: dict):
         return {"detail": "Not Found"}
 
     # Elevação do ponto sugerido
-    url = f"https://api.opentopodata.org/v1/srtm90m?locations={melhor_ponto['lat']},{melhor_ponto['lon']}"
-    async with httpx.AsyncClient() as client:
-        resposta = await client.get(url)
-        elev = resposta.json()["results"][0]["elevation"]
-
+    elev = await get_elev_mapbox(melhor_ponto["lat"], melhor_ponto["lon"])
     melhor_ponto["elev"] = elev
     return {"ponto_sugerido": melhor_ponto}
