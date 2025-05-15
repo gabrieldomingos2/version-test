@@ -237,7 +237,7 @@
   </div>
 
   <!-- Painel flutuante para configurar uma repetidora manual -->
-  <div id="painel-repetidora" class="bg-black bg-opacity-60 p-3 rounded-xl shadow-lg w-56 absolute left-4 top-72 z-[9999] hidden">
+  <div id="painel-repetidora" class="bg-black bg-opacity-60 p-3 rounded-xl shadow-lg w-56 absolute left-4 top-[400px] z-[9999] hidden">
     <div class="flex justify-between items-center mb-2">
       <h2 class="font-bold text-green-300">➕ Repetidora</h2>
       <button onclick="document.getElementById('painel-repetidora').classList.add('hidden')" class="text-red-400 font-bold">✖</button>
@@ -1067,32 +1067,37 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
   linhasDiagnostico = [];
   marcadoresBloqueio = [];
 
-  const tasks = Object.entries(pivotsMap).map(async ([nome, marcador]) => {
+  for (const [nome, marcador] of Object.entries(pivotsMap)) {
+    const latlonAntena = [antenaGlobal.lat, antenaGlobal.lon];
+    const latlonPivo = [marcador.getLatLng().lat, marcador.getLatLng().lng];
+
+    // 🔷 Desenha linha azul entre antena e pivô
+    const linha = L.polyline([latlonAntena, latlonPivo], {
+    className: 'linha-futurista'
+    }).addTo(map);
+    linhasDiagnostico.push(linha);
+
+    // Após 2 segundos, troca a classe para uma linha estável
+    setTimeout(() => {
+    if (linha._path) {
+    linha._path.classList.remove('linha-futurista');
+    linha._path.style.stroke = '#00ffff';
+    linha._path.style.strokeWidth = '2';
+    linha._path.style.strokeDasharray = 'none';
+    }
+    }, 2000);
+
+    const payload = {
+    pontos: [
+    [antenaGlobal.lat, antenaGlobal.lon],
+    [marcador.getLatLng().lat, marcador.getLatLng().lng]
+    ],
+    altura_antena: antenaGlobal.altura ?? 15,
+    altura_receiver: antenaGlobal.altura_receiver ?? 3
+    };
+
+
     try {
-      const latlonAntena = [antenaGlobal.lat, antenaGlobal.lon];
-      const latlonPivo = [marcador.getLatLng().lat, marcador.getLatLng().lng];
-
-      // Desenha linha visual inicial
-      const linha = L.polyline([latlonAntena, latlonPivo], {
-        className: 'linha-futurista'
-      }).addTo(map);
-      linhasDiagnostico.push(linha);
-
-      setTimeout(() => {
-        if (linha._path) {
-          linha._path.classList.remove('linha-futurista');
-          linha._path.style.stroke = '#00ffff';
-          linha._path.style.strokeWidth = '2';
-          linha._path.style.strokeDasharray = 'none';
-        }
-      }, 2000);
-
-      const payload = {
-        pontos: [latlonAntena, latlonPivo],
-        altura_antena: antenaGlobal.altura ?? 15,
-        altura_receiver: antenaGlobal.altura_receiver ?? 3
-      };
-
       const res = await fetch("https://version-test.onrender.com/perfil_elevacao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1100,7 +1105,6 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
       });
 
       const data = await res.json();
-
       if (data.bloqueio) {
         const ponto = data.bloqueio;
 
@@ -1112,27 +1116,23 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
         });
 
         const marker = L.marker([ponto.lat, ponto.lon], { icon: bloqueioIcon })
-          .addTo(map)
-          .bindPopup(`
-            <div class="popup-glass text-center leading-snug">
-              ⛔ Elevação acima da linha de visada<br>
-              entre a antena e <strong>${nome}</strong>
-            </div>
-          `);
-
+  .addTo(map)
+  .bindPopup(`
+    <div class="popup-glass text-center leading-snug">
+      ⛔ Elevação acima da linha de visada<br>
+      entre a antena e <strong>${nome}</strong>
+    </div>
+  `);
+        
         marcadoresBloqueio.push(marker);
       }
-    } catch (err) {
-      console.error(`Erro no pivô ${nome}:`, err);
+    } catch (error) {
+      console.error(`Erro no diagnóstico do pivô ${nome}:`, error);
     }
-  });
-
-  // Aguarda todas as tarefas em paralelo
-  await Promise.all(tasks);
+  }
 
   mostrarMensagem("🔍 Diagnóstico de visada concluído.");
-});
-
+ });
 
 
 let contadorSugRep = 1;
