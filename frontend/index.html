@@ -1135,6 +1135,8 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
  });
 
 
+let contadorSugRep = 1;
+
 async function sugerirRepetidoraTriangular() {
   const pivosExtraidos = Object.entries(pivotsMap).map(([nome, marcador]) => {
     const { lat, lng } = marcador.getLatLng();
@@ -1164,11 +1166,33 @@ async function sugerirRepetidoraTriangular() {
       popupAnchor: [0, -30]
     });
 
+    const id = `SUG-REP ${contadorSugRep++}`;
+
     const marker = L.marker([lat, lon], { icon: iconeRepetidora }).addTo(map);
     marker.bindPopup(`
-      📡 <strong>Repetidora sugerida</strong><br>
+      📡 <strong>${id}</strong><br>
       <b>Altura:</b> ${elev.toFixed(1)} m
     `).openPopup();
+
+    const label = L.marker([lat, lon], {
+      icon: L.divIcon({
+        className: 'label-pivo',
+        html: `🔮 ${id}`,
+        iconSize: [80, 20],
+        iconAnchor: [30, 45]
+      })
+    }).addTo(map);
+
+    adicionarRepetidoraNoPainel({
+      id,
+      marker,
+      overlay: null,
+      altura: elev,
+      altura_receiver: 3,
+      label
+    });
+
+    mostrarMensagem(`🤖 ${id} adicionada automaticamente!`);
   } else {
     alert("Nenhum triângulo viável encontrado.");
   }

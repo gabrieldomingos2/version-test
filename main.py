@@ -563,7 +563,7 @@ async def sugerir_repetidora_progressiva(req: dict = Body(...)):
                 conectado = True
                 break
 
-        if not conectado:
+        if not conectado or distancia(torre, pivo) > 2000:
             # Sugere repetidora no meio entre último coberto e este
             ultimo = cobertos[-1] if cobertos else torre
             lat = (ultimo["lat"] + pivo["lat"]) / 2
