@@ -456,7 +456,7 @@ async def perfil_elevacao(req: dict):
     if len(pontos) < 2:
         return {"erro": "Informe pelo menos dois pontos"}
 
-    steps = 50
+    steps = 25
     amostrados = [
         (
             pontos[0][0] + (pontos[1][0] - pontos[0][0]) * i / steps,

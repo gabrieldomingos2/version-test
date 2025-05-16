@@ -161,6 +161,15 @@
   max-width: 250px;
 }
 
+#btn-diagnostico .group-hover\\:block {
+  display: none;
+}
+
+#btn-diagnostico:hover .group-hover\\:block {
+  display: block;
+}
+
+
   </style>
 </head>
 
@@ -214,11 +223,12 @@
     </form>
 
     <button id="simular-btn" class="glass-button bg-blue-600 hover:bg-blue-700 hidden w-56">📶 Rodar Estudo de Sinal</button>
-      <button id="btn-diagnostico" class="glass-button bg-yellow-600 hover:bg-yellow-700 w-56">
-      📈 Diagnóstico de Visada
-    </button>
-    <button onclick="sugerirRepetidoraTriangular()" class="glass-button bg-indigo-700 hover:bg-indigo-800 text-sm w-56">
-  🧠 AI Sugere
+
+      <button id="btn-diagnostico" class="glass-button bg-yellow-600 hover:bg-yellow-700 w-56 relative group">
+  📈 Diagnóstico de Visada
+  <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 hidden group-hover:block bg-black text-white text-xs px-2 py-1 rounded shadow-lg z-50">
+    💡 Clique com o direito para modo automático
+  </span>
 </button>
 
     <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm w-56">🔄 Resetar</button>
@@ -237,7 +247,7 @@
   </div>
 
   <!-- Painel flutuante para configurar uma repetidora manual -->
-  <div id="painel-repetidora" class="bg-black bg-opacity-60 p-3 rounded-xl shadow-lg w-56 absolute left-4 top-[400px] z-[9999] hidden">
+  <div id="painel-repetidora" class="bg-black bg-opacity-60 p-3 rounded-xl shadow-lg w-56 absolute left-4 top-72 z-[9999] hidden">
     <div class="flex justify-between items-center mb-2">
       <h2 class="font-bold text-green-300">➕ Repetidora</h2>
       <button onclick="document.getElementById('painel-repetidora').classList.add('hidden')" class="text-red-400 font-bold">✖</button>
@@ -436,7 +446,7 @@ removerBtn.addEventListener("click", () => {
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
 
-    const res = await fetch("https://version-test.onrender.com/processar_kmz", {
+    const res = await fetch("https://irricontrol-test.onrender.com/processar_kmz", {
       method: "POST",
       body: formData
     });
@@ -463,7 +473,7 @@ removerBtn.addEventListener("click", () => {
 
     // Ícone da antena
     const antenaIcon = L.icon({
-      iconUrl: "https://version-test.onrender.com/icone-torre",
+      iconUrl: "https://irricontrol-test.onrender.com/icone-torre",
       iconSize: [28, 28],
       iconAnchor: [14, 28],
       popupAnchor: [0, 35]
@@ -560,7 +570,7 @@ document.getElementById("painel-dados").classList.remove("hidden");
 
     // Ícone das casas de bomba
 const iconeBomba = L.icon({
-  iconUrl: "https://version-test.onrender.com/static/imagens/homegardenbusiness.png",
+  iconUrl: "https://irricontrol-test.onrender.com/static/imagens/homegardenbusiness.png",
   iconSize: [28, 28],
   iconAnchor: [14, 28],
   popupAnchor: [0, -14]
@@ -615,7 +625,7 @@ data.bombas.forEach(bomba => {
 
     mostrarLoader(true);
 
-    const res = await fetch("https://version-test.onrender.com/simular_sinal", {
+    const res = await fetch("https://irricontrol-test.onrender.com/simular_sinal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(antenaGlobal)
@@ -780,7 +790,7 @@ data.bombas.forEach(bomba => {
     coordenadaClicada = e.latlng;
 
     const iconePosicionamento = L.icon({
-      iconUrl: "https://version-test.onrender.com/icone-torre",
+      iconUrl: "https://irricontrol-test.onrender.com/icone-torre",
       iconSize: [28, 28],
       iconAnchor: [14, 28],
       popupAnchor: [0, -30]
@@ -811,7 +821,7 @@ data.bombas.forEach(bomba => {
     const alturaReceiver = parseFloat(document.getElementById("altura-receiver-rep").value);
 
     const repetidoraIcon = L.icon({
-      iconUrl: "https://version-test.onrender.com/icone-torre",
+      iconUrl: "https://irricontrol-test.onrender.com/icone-torre",
       iconSize: [28, 28],
       iconAnchor: [14, 28],
       popupAnchor: [0, -30]
@@ -866,7 +876,7 @@ data.bombas.forEach(bomba => {
       }))
     };
 
-    const res = await fetch("https://version-test.onrender.com/simular_manual", {
+    const res = await fetch("https://irricontrol-test.onrender.com/simular_manual", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -962,7 +972,7 @@ data.bombas.forEach(bomba => {
 if (antenaGlobal?.overlay && map.hasLayer(antenaGlobal.overlay)) {
   const b = antenaGlobal.overlay.getBounds().toBBoxString().split(",").map(Number);
   overlays.push({
-    imagem: "https://version-test.onrender.com/static/imagens/sinal.png",
+    imagem: "https://irricontrol-test.onrender.com/static/imagens/sinal.png",
     bounds: [b[1], b[0], b[3], b[2]]
   });
 }
@@ -971,13 +981,13 @@ repetidoras.forEach(rep => {
   if (rep.overlay && map.hasLayer(rep.overlay)) {
     const b = rep.overlay.getBounds().toBBoxString().split(",").map(Number);
     overlays.push({
-      imagem: `https://version-test.onrender.com/static/imagens/repetidora_${rep.marker.getLatLng().lat.toString().replace(".", "_")}_${rep.marker.getLatLng().lng.toString().replace(".", "_")}.png`,
+      imagem: `https://irricontrol-test.onrender.com/static/imagens/repetidora_${rep.marker.getLatLng().lat.toString().replace(".", "_")}_${rep.marker.getLatLng().lng.toString().replace(".", "_")}.png`,
       bounds: [b[1], b[0], b[3], b[2]]
     });
   }
 });
 
-    const res = await fetch("https://version-test.onrender.com/reavaliar_pivos", {
+    const res = await fetch("https://irricontrol-test.onrender.com/reavaliar_pivos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pivos, overlays })
@@ -1098,7 +1108,7 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
 
 
     try {
-      const res = await fetch("https://version-test.onrender.com/perfil_elevacao", {
+      const res = await fetch("https://irricontrol-test.onrender.com/perfil_elevacao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -1123,6 +1133,8 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
       entre a antena e <strong>${nome}</strong>
     </div>
   `);
+
+
         
         marcadoresBloqueio.push(marker);
       }
@@ -1134,69 +1146,83 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
   mostrarMensagem("🔍 Diagnóstico de visada concluído.");
  });
 
+document.getElementById("btn-diagnostico").addEventListener("contextmenu", async (e) => {
+  e.preventDefault(); // Evita menu do botão direito
 
-let contadorSugRep = 1;
+  if (!antenaGlobal || Object.keys(pivotsMap).length === 0) return;
 
-async function sugerirRepetidoraTriangular() {
-  const pivosExtraidos = Object.entries(pivotsMap).map(([nome, marcador]) => {
-    const { lat, lng } = marcador.getLatLng();
-    return { nome, lat, lon: lng };
-  });
+  mostrarMensagem("⏳ Rodando diagnóstico automático dos pivôs fora da cobertura...");
 
-  if (pivosExtraidos.length < 3) {
-    alert("É necessário pelo menos 3 pivôs para gerar sugestão.");
-    return;
-  }
+  // Limpa marcas anteriores
+  linhasDiagnostico.forEach(l => map.removeLayer(l));
+  marcadoresBloqueio.forEach(m => map.removeLayer(m));
+  linhasDiagnostico = [];
+  marcadoresBloqueio = [];
 
-  const resp = await fetch("https://version-test.onrender.com/sugerir_repetidora_triangular", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pivos: pivosExtraidos })
-  });
+  const pivosFora = Object.entries(pivotsMap)
+    .filter(([_, m]) => m.options.fillColor === 'red')
+    .map(([nome, m]) => ({
+      nome,
+      lat: m.getLatLng().lat,
+      lon: m.getLatLng().lng
+    }));
 
-  const data = await resp.json();
+  const payload = {
+    antena: {
+      lat: antenaGlobal.lat,
+      lon: antenaGlobal.lon,
+      altura: antenaGlobal.altura ?? 15,
+      altura_receiver: antenaGlobal.altura_receiver ?? 3
+    },
+    pivos: pivosFora
+  };
 
-  if (data.ponto_sugerido) {
-    const { lat, lon, elev } = data.ponto_sugerido;
-
-    const iconeRepetidora = L.icon({
-      iconUrl: "https://version-test.onrender.com/icone-torre",
-      iconSize: [28, 28],
-      iconAnchor: [14, 28],
-      popupAnchor: [0, -30]
+  try {
+    const res = await fetch("https://irricontrol-test.onrender.com/diagnostico_automatico", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
     });
 
-    const id = `SUG-REP ${contadorSugRep++}`;
+    const data = await res.json();
+    if (data.bloqueios && data.bloqueios.length > 0) {
+      data.bloqueios.forEach(item => {
+        const ponto = item.bloqueio;
+        const nomePivo = item.nome;
 
-    const marker = L.marker([lat, lon], { icon: iconeRepetidora }).addTo(map);
-    marker.bindPopup(`
-      📡 <strong>${id}</strong><br>
-      <b>Altura:</b> ${elev.toFixed(1)} m
-    `).openPopup();
+        const linha = L.polyline(
+          [[payload.antena.lat, payload.antena.lon], [item.lat, item.lon]],
+          { className: 'linha-futurista' }
+        ).addTo(map);
+        linhasDiagnostico.push(linha);
 
-    const label = L.marker([lat, lon], {
-  icon: L.divIcon({
-    className: 'label-pivo',
-    html: `${id}`,
-    iconSize: [60, 20],
-    iconAnchor: [25, -10]  // 🔁 Agora a legenda aparece logo acima do ícone
-  })
-}).addTo(map);
+        const marker = L.marker([ponto.lat, ponto.lon], {
+          icon: L.divIcon({
+            className: 'label-pivo',
+            html: '⛰️ Bloqueio',
+            iconSize: [60, 20],
+            iconAnchor: [30, 10]
+          })
+        }).addTo(map).bindPopup(`
+          <div class="popup-glass text-center leading-snug">
+            ⛔ Elevação acima da linha de visada<br>
+            entre a antena e <strong>${nomePivo}</strong>
+          </div>
+        `);
 
-    adicionarRepetidoraNoPainel({
-      id,
-      marker,
-      overlay: null,
-      altura: elev,
-      altura_receiver: 3,
-      label
-    });
+        marcadoresBloqueio.push(marker);
+      });
 
-    mostrarMensagem(`🤖 ${id} adicionada automaticamente!`);
-  } else {
-    alert("Nenhum triângulo viável encontrado.");
+      mostrarMensagem("📡 Diagnóstico automático concluído.");
+    } else {
+      mostrarMensagem("✅ Nenhum bloqueio encontrado nos pivôs fora da cobertura.");
+    }
+  } catch (err) {
+    console.error("Erro no diagnóstico automático:", err);
+    mostrarMensagem("❌ Erro ao rodar o diagnóstico automático.", "erro");
   }
-}
+ });
+
 
 </script>
 </body>
