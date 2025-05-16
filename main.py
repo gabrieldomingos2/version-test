@@ -525,17 +525,23 @@ async def perfil_elevacao(req: dict):
     elev2 = elevs[-1] + alt2
     linha_visada = [elev1 + i * (elev2 - elev1) / steps for i in range(steps + 1)]
 
-    bloqueio = None
+    pico_mais_alto = None
+    maior_diferenca = -float("inf")
+
     for i in range(1, steps):
-        if elevs[i] > linha_visada[i]:
-            bloqueio = {
+        diferenca = elevs[i] - linha_visada[i]
+        if diferenca > 0 and diferenca > maior_diferenca:
+            maior_diferenca = diferenca
+            pico_mais_alto = {
                 "lat": amostrados[i][0],
                 "lon": amostrados[i][1],
                 "elev": elevs[i]
             }
-            break
 
-    return {"bloqueio": bloqueio, "elevacao": elevs}
+    return {
+        "bloqueio": pico_mais_alto,
+        "elevacao": elevs
+    }
 
 
 @app.post("/diagnostico_automatico")

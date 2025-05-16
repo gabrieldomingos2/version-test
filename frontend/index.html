@@ -161,15 +161,6 @@
   max-width: 250px;
 }
 
-#btn-diagnostico .group-hover\\:block {
-  display: none;
-}
-
-#btn-diagnostico:hover .group-hover\\:block {
-  display: block;
-}
-
-
   </style>
 </head>
 
@@ -223,14 +214,9 @@
     </form>
 
     <button id="simular-btn" class="glass-button bg-blue-600 hover:bg-blue-700 hidden w-56">📶 Rodar Estudo de Sinal</button>
-
-      <button id="btn-diagnostico" class="glass-button bg-yellow-600 hover:bg-yellow-700 w-56 relative group">
-  📈 Diagnóstico de Visada
-  <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 hidden group-hover:block bg-black text-white text-xs px-2 py-1 rounded shadow-lg z-50">
-    💡 Clique com o direito para modo automático
-  </span>
-</button>
-
+      <button id="btn-diagnostico" class="glass-button bg-yellow-600 hover:bg-yellow-700 w-56">
+      📈 Diagnóstico de Visada
+    </button>
     <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm w-56">🔄 Resetar</button>
   </div>
 
@@ -1144,83 +1130,6 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
   }
 
   mostrarMensagem("🔍 Diagnóstico de visada concluído.");
- });
-
-document.getElementById("btn-diagnostico").addEventListener("contextmenu", async (e) => {
-  e.preventDefault(); // Evita menu do botão direito
-
-  if (!antenaGlobal || Object.keys(pivotsMap).length === 0) return;
-
-  mostrarMensagem("⏳ Rodando diagnóstico automático dos pivôs fora da cobertura...");
-
-  // Limpa marcas anteriores
-  linhasDiagnostico.forEach(l => map.removeLayer(l));
-  marcadoresBloqueio.forEach(m => map.removeLayer(m));
-  linhasDiagnostico = [];
-  marcadoresBloqueio = [];
-
-  const pivosFora = Object.entries(pivotsMap)
-    .filter(([_, m]) => m.options.fillColor === 'red')
-    .map(([nome, m]) => ({
-      nome,
-      lat: m.getLatLng().lat,
-      lon: m.getLatLng().lng
-    }));
-
-  const payload = {
-    antena: {
-      lat: antenaGlobal.lat,
-      lon: antenaGlobal.lon,
-      altura: antenaGlobal.altura ?? 15,
-      altura_receiver: antenaGlobal.altura_receiver ?? 3
-    },
-    pivos: pivosFora
-  };
-
-  try {
-    const res = await fetch("https://irricontrol-test.onrender.com/diagnostico_automatico", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    if (data.bloqueios && data.bloqueios.length > 0) {
-      data.bloqueios.forEach(item => {
-        const ponto = item.bloqueio;
-        const nomePivo = item.nome;
-
-        const linha = L.polyline(
-          [[payload.antena.lat, payload.antena.lon], [item.lat, item.lon]],
-          { className: 'linha-futurista' }
-        ).addTo(map);
-        linhasDiagnostico.push(linha);
-
-        const marker = L.marker([ponto.lat, ponto.lon], {
-          icon: L.divIcon({
-            className: 'label-pivo',
-            html: '⛰️ Bloqueio',
-            iconSize: [60, 20],
-            iconAnchor: [30, 10]
-          })
-        }).addTo(map).bindPopup(`
-          <div class="popup-glass text-center leading-snug">
-            ⛔ Elevação acima da linha de visada<br>
-            entre a antena e <strong>${nomePivo}</strong>
-          </div>
-        `);
-
-        marcadoresBloqueio.push(marker);
-      });
-
-      mostrarMensagem("📡 Diagnóstico automático concluído.");
-    } else {
-      mostrarMensagem("✅ Nenhum bloqueio encontrado nos pivôs fora da cobertura.");
-    }
-  } catch (err) {
-    console.error("Erro no diagnóstico automático:", err);
-    mostrarMensagem("❌ Erro ao rodar o diagnóstico automático.", "erro");
-  }
  });
 
 
