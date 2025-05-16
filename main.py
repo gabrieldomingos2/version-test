@@ -1,20 +1,25 @@
-from fastapi import FastAPI, UploadFile, File, Body
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import zipfile, os, xml.etree.ElementTree as ET, httpx, re, json
+
+import os
+import zipfile
+import re
+import json
+import httpx
+import xml.etree.ElementTree as ET
+
 from PIL import Image
 from statistics import mean
-import itertools
-import numpy as np
-from shapely.geometry import Point, Polygon
-from math import sqrt
+from shapely.geometry import Polygon
+
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://version-test.netlify.app"],
+    allow_origins=["https://irricontrol-test.netlify.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -25,6 +30,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 API_URL = "https://api.cloudrf.com/area"
 API_KEY = "35113-e181126d4af70994359d767890b3a4f2604eb0ef"
+
 
 @app.get("/icone-torre")
 def icone_torre():
@@ -58,11 +64,35 @@ def parse_kmz(caminho_kmz):
                         if any(p in nome_texto for p in ["antena", "torre", "barracão", "galpão", "silo", "caixa", "repetidora"]):
                             match = re.search(r"(\d{1,3})\s*(m|metros)", nome.text.lower())
                             altura = int(match.group(1)) if match else 15
-                            antena = {"lat": lat, "lon": lon, "altura": altura, "altura_receiver": 3, "nome": nome.text}
-                        elif "pivô" in nome_texto:
-                            pivos.append({"nome": nome.text.strip(), "lat": lat, "lon": lon})
+                            antena = {
+                                "lat": lat,
+                                "lon": lon,
+                                "altura": altura,
+                                "altura_receiver": 3,
+                                "nome": nome.text
+                            }
+
+                        elif "pivô" in nome_texto or re.match(r"p\s?\d+", nome_texto):
+                            nome_bruto = nome.text.strip()
+                            match = re.match(r"p\s?(\d+)", nome_bruto.lower())
+                            if match:
+                                numero = match.group(1)
+                                nome_formatado = f"Pivô {numero}"
+                            else:
+                                nome_formatado = nome_bruto
+
+                            pivos.append({
+                                "nome": nome_formatado,
+                                "lat": lat,
+                                "lon": lon
+                            })
+
                         elif "casa de bomba" in nome_texto or "irripump" in nome_texto:
-                            bombas.append({"nome": nome.text.strip(), "lat": lat, "lon": lon})
+                            bombas.append({
+                                "nome": nome.text.strip(),
+                                "lat": lat,
+                                "lon": lon
+                            })
 
                     linha = placemark.find(".//kml:LineString/kml:coordinates", ns)
                     if nome is not None and linha is not None and "medida do círculo" in nome.text.lower():
@@ -73,7 +103,10 @@ def parse_kmz(caminho_kmz):
                             if len(partes) >= 2:
                                 lon, lat = map(float, partes[:2])
                                 coords.append([lat, lon])
-                        ciclos.append({"nome": nome.text.strip(), "coordenadas": coords})
+                        ciclos.append({
+                            "nome": nome.text.strip(),
+                            "coordenadas": coords
+                        })
 
     nomes_existentes = {p["nome"].strip().lower() for p in pivos}
     contador_virtual = 1
@@ -87,31 +120,48 @@ def parse_kmz(caminho_kmz):
         nome_normalizado = nome.lower().replace("medida do círculo", "").strip()
         nome_virtual = f"Pivô {nome_normalizado}".strip()
 
-        if nome_virtual.lower() in nomes_existentes:
-            continue
+        try:
+            coords_lonlat = [(lon, lat) for lat, lon in coords]
 
-        max_dist = 0
-        ponto_a = coords[0]
-        ponto_b = coords[1] if len(coords) > 1 else coords[0]
+            # Detecta as duas extremidades mais distantes
+            max_dist = 0
+            ponto_a = coords_lonlat[0]
+            ponto_b = coords_lonlat[1]
+            for i in range(len(coords_lonlat)):
+                for j in range(i + 1, len(coords_lonlat)):
+                    dist = ((coords_lonlat[i][0] - coords_lonlat[j][0]) ** 2 +
+                            (coords_lonlat[i][1] - coords_lonlat[j][1]) ** 2) ** 0.5
+                    if dist > max_dist:
+                        max_dist = dist
+                        ponto_a = coords_lonlat[i]
+                        ponto_b = coords_lonlat[j]
 
-        for i in range(len(coords)):
-            for j in range(i + 1, len(coords)):
-                lat1, lon1 = coords[i][:2]
-                lat2, lon2 = coords[j][:2]
-                dist = ((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2) ** 0.5
-                if dist > max_dist:
-                    max_dist = dist
-                    ponto_a = coords[i][:2]
-                    ponto_b = coords[j][:2]
+            if max_dist > 0.001:  # se distância A-B for significativa
+                centro_lon = (ponto_a[0] + ponto_b[0]) / 2
+                centro_lat = (ponto_a[1] + ponto_b[1]) / 2
+            else:
+                poligono = Polygon(coords_lonlat)
+                centroide = poligono.centroid
+                centro_lat = centroide.y
+                centro_lon = centroide.x
 
-        if max_dist > 0.0005:
-            centro_lat = (ponto_a[0] + ponto_b[0]) / 2
-            centro_lon = (ponto_a[1] + ponto_b[1]) / 2
-        else:
+        except Exception as e:
+            print("⚠️ Erro ao calcular centroide, usando média como fallback:", e)
             lats = [lat for lat, lon in coords]
             lons = [lon for lat, lon in coords]
             centro_lat = mean(lats)
             centro_lon = mean(lons)
+
+        distancia_minima = 0.0002
+        nome_esperado = nome_virtual.lower()
+        existe_placemark = any(
+            p["nome"].strip().lower() == nome_esperado or
+            ((p["lat"] - centro_lat) ** 2 + (p["lon"] - centro_lon) ** 2) ** 0.5 < distancia_minima
+            for p in pivos
+        )
+
+        if existe_placemark:
+            continue
 
         if not re.search(r"\d+", nome_virtual):
             nome_virtual = f"Pivô {contador_virtual}"
@@ -126,8 +176,6 @@ def parse_kmz(caminho_kmz):
         print(f"[DEBUG] {nome_virtual} → Lat: {centro_lat:.6f}, Lon: {centro_lon:.6f}")
 
     return antena, pivos, ciclos, bombas
-
-
 
 def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png", pivos_existentes=[]):
     
@@ -272,7 +320,7 @@ async def simular_sinal(antena: dict):
     pivos_com_status = detectar_pivos_fora(bounds, pivos)
 
     return {
-        "imagem_salva": "https://version-test.onrender.com/static/imagens/sinal.png",
+        "imagem_salva": "https://irricontrol-test.onrender.com/static/imagens/sinal.png",
         "bounds": bounds,
         "status": "Simulação concluída",
         "pivos": pivos_com_status
@@ -373,7 +421,7 @@ async def simular_manual(params: dict):
             f.write(r.content)
 
         # 🔁 URL final acessível via frontend (Netlify)
-    imagem_local_url = f"https://version-test.onrender.com/static/imagens/{nome_arquivo}"
+    imagem_local_url = f"https://irricontrol-test.onrender.com/static/imagens/{nome_arquivo}"
 
     # Recarrega os pivôs reais do KMZ
     _, pivos_atualizados, _, _ = parse_kmz("arquivos/entrada.kmz")
@@ -411,7 +459,7 @@ async def reavaliar_pivos(data: dict):
 
                 # ✅ Corrige se veio como URL
                 if imagem_path.startswith("http"):
-                    imagem_path = imagem_path.replace("https://version-test.onrender.com/", "")
+                    imagem_path = imagem_path.replace("https://irricontrol-test.onrender.com/", "")
 
                 try:
                     img = Image.open(imagem_path).convert("RGBA")
@@ -447,8 +495,6 @@ from math import sqrt
 
 @app.post("/perfil_elevacao")
 async def perfil_elevacao(req: dict):
-    import httpx
-
     pontos = req.get("pontos", [])
     alt1 = req.get("altura_antena", 15)
     alt2 = req.get("altura_receiver", 3)
@@ -456,7 +502,7 @@ async def perfil_elevacao(req: dict):
     if len(pontos) < 2:
         return {"erro": "Informe pelo menos dois pontos"}
 
-    steps = 25
+    steps = 50
     amostrados = [
         (
             pontos[0][0] + (pontos[1][0] - pontos[0][0]) * i / steps,
@@ -474,169 +520,83 @@ async def perfil_elevacao(req: dict):
     dados = resp.json()
     elevs = [r["elevation"] for r in dados["results"]]
 
+    # ⛰️ Visada com base na elevação real dos pontos
     elev1 = elevs[0] + alt1
     elev2 = elevs[-1] + alt2
     linha_visada = [elev1 + i * (elev2 - elev1) / steps for i in range(steps + 1)]
 
-    margem_m = 1.5
     bloqueio = None
-    debug_lista = []
-
     for i in range(1, steps):
-        dif = elevs[i] - linha_visada[i]
-        debug_lista.append({
-            "i": i,
-            "elev": elevs[i],
-            "visada": linha_visada[i],
-            "dif": round(dif, 2)
-        })
-        if dif > margem_m:
+        if elevs[i] > linha_visada[i]:
             bloqueio = {
                 "lat": amostrados[i][0],
                 "lon": amostrados[i][1],
-                "elev": elevs[i],
-                "visada": linha_visada[i],
-                "dif": round(dif, 2)
+                "elev": elevs[i]
             }
             break
 
-    return {
-        "bloqueio": bloqueio,
-        "elevacao": elevs,
-        "linha_visada": linha_visada,
-        "status": "Bloqueado" if bloqueio else "Visada limpa",
-        "debug": debug_lista[:5] + [{"...": "omitido"}] + debug_lista[-5:]
-    }
+    return {"bloqueio": bloqueio, "elevacao": elevs}
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Endpoint inteligente: sugerir_repetidora_progressiva
-@app.post("/sugerir_repetidora_progressiva")
-async def sugerir_repetidora_progressiva(req: dict = Body(...)):
-    pivos = req.get("pivos", [])
-    torre = req.get("torre", {})
-    alt_torre = torre.get("altura", 15)
-    alt_receiver = torre.get("altura_receiver", 3)
+@app.post("/diagnostico_automatico")
+async def diagnostico_automatico(payload: dict):
+    antena = payload.get("antena", {})
+    pivos = payload.get("pivos", [])
 
-    if not torre or not pivos:
-        return {"erro": "Dados insuficientes: torre e pivos obrigatórios"}
+    if not antena or not pivos:
+        return {"erro": "Antena ou pivôs ausentes no payload."}
 
-    def distancia(a, b):
-        return sqrt((a["lat"] - b["lat"])**2 + (a["lon"] - b["lon"])**2) * 111000  # metros
+    altura_antena = antena.get("altura", 15)
+    altura_receiver = antena.get("altura_receiver", 3)
 
-    async def tem_visada(a, b):
-        coords = [[a["lat"], a["lon"]], [b["lat"], b["lon"]]]
-        payload = {
-            "pontos": coords,
-            "altura_antena": a.get("altura", alt_torre),
-            "altura_receiver": b.get("altura_receiver", alt_receiver)
-        }
-        try:
-            async with httpx.AsyncClient() as client:
-                r = await client.post("https://version-test.onrender.com/perfil_elevacao", json=payload)
-            resp = r.json()
-            return not resp.get("bloqueio")
-        except:
-            return False
-
-    # Ordena pivôs pela distância da torre
-    pivos.sort(key=lambda p: distancia(p, torre))
-
-    cobertos = []
-    repetidoras = []
-    caminhos = []
+    bloqueios = []
 
     for pivo in pivos:
-        conectado = False
-
-        # 1. Tenta direto da torre
-        if await tem_visada(torre, pivo):
-            caminhos.append({"pivo": pivo["nome"], "recebe_de": "torre"})
-            cobertos.append(pivo)
+        if not pivo.get("fora", False):
             continue
 
-        # 2. Tenta com cobertos próximos
-        for anterior in cobertos[::-1]:
-            if distancia(anterior, pivo) < 2000:  # até 2 km entre pivôs
-                if await tem_visada(anterior, pivo):
-                    caminhos.append({"pivo": pivo["nome"], "recebe_de": anterior["nome"]})
-                    cobertos.append(pivo)
-                    conectado = True
-                    break
-                else:
-                    # 3. Se não há visada, sugere repetidora entre eles
-                    lat = (anterior["lat"] + pivo["lat"]) / 2
-                    lon = (anterior["lon"] + pivo["lon"]) / 2
+        coord1 = (antena["lat"], antena["lon"])
+        coord2 = (pivo["lat"], pivo["lon"])
 
-                    # Consulta elevação
-                    elev = 0
-                    try:
-                        url = f"https://api.opentopodata.org/v1/srtm90m?locations={lat},{lon}"
-                        async with httpx.AsyncClient() as client:
-                            r = await client.get(url)
-                            elev = r.json()["results"][0]["elevation"]
-                    except:
-                        pass
+        steps = 50
+        amostrados = [
+            (
+                coord1[0] + (coord2[0] - coord1[0]) * i / steps,
+                coord1[1] + (coord2[1] - coord1[1]) * i / steps
+            )
+            for i in range(steps + 1)
+        ]
 
-                    nome_rep = f"Repetidora_{len(repetidoras) + 1}"
-                    rep = {
-                        "lat": lat,
-                        "lon": lon,
-                        "elev": elev,
-                        "nome": nome_rep,
-                        "entre": [anterior["nome"], pivo["nome"]]
-                    }
-                    repetidoras.append(rep)
-                    caminhos.append({"pivo": pivo["nome"], "recebe_de": nome_rep})
-                    cobertos.append(pivo)
-                    conectado = True
-                    break  # só sugere uma repetidora intermediária por pivô
+        coords_param = "|".join([f"{lat},{lon}" for lat, lon in amostrados])
+        url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
 
-        # 4. Se não conectou por nenhum caminho, marca como não alcançável (pode ser adicionado lógica futura)
-        if not conectado:
-            caminhos.append({"pivo": pivo["nome"], "recebe_de": "indefinido"})
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url)
+        if resp.status_code != 200:
+            continue
 
-    return {
-        "repetidoras_sugeridas": repetidoras,
-        "caminhos_de_sinal": caminhos
-    }
+        dados = resp.json()
+        elevs = [r["elevation"] for r in dados["results"]]
 
+        elev1 = elevs[0] + altura_antena
+        elev2 = elevs[-1] + altura_receiver
+        linha_visada = [elev1 + i * (elev2 - elev1) / steps for i in range(steps + 1)]
 
-@app.post("/sugerir_repetidora_triangular")
-async def sugerir_repetidora_triangular(data: dict):
-    pivos = data.get("pivos", [])
+        ponto_maior = None
+        maior_diferenca = 0
 
-    if len(pivos) < 3:
-        return {"erro": "Pelo menos 3 pivôs são necessários"}
+        for i in range(1, steps):
+            diferenca = elevs[i] - linha_visada[i]
+            if diferenca > maior_diferenca:
+                maior_diferenca = diferenca
+                ponto_maior = {
+                    "lat": amostrados[i][0],
+                    "lon": amostrados[i][1],
+                    "elev": elevs[i],
+                    "pivo": pivo["nome"]
+                }
 
-    melhor_ponto = None
-    maior_area = 0
+        if ponto_maior:
+            bloqueios.append(ponto_maior)
 
-    for trio in itertools.combinations(pivos, 3):
-        a = (trio[0]["lat"], trio[0]["lon"])
-        b = (trio[1]["lat"], trio[1]["lon"])
-        c = (trio[2]["lat"], trio[2]["lon"])
-
-        area = abs(
-            a[0] * (b[1] - c[1]) +
-            b[0] * (c[1] - a[1]) +
-            c[0] * (a[1] - b[1])
-        ) / 2
-
-        if area > maior_area:
-            maior_area = area
-            lat = (a[0] + b[0] + c[0]) / 3
-            lon = (a[1] + b[1] + c[1]) / 3
-            melhor_ponto = {"lat": lat, "lon": lon}
-
-    if not melhor_ponto:
-        return {"detail": "Not Found"}
-
-    # Elevação do ponto sugerido
-    url = f"https://api.opentopodata.org/v1/srtm90m?locations={melhor_ponto['lat']},{melhor_ponto['lon']}"
-    async with httpx.AsyncClient() as client:
-        resposta = await client.get(url)
-        elev = resposta.json()["results"][0]["elevation"]
-
-    melhor_ponto["elev"] = elev
-    return {"ponto_sugerido": melhor_ponto}
+    return {"bloqueios": bloqueios}
