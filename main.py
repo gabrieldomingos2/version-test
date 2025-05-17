@@ -419,9 +419,10 @@ async def simular_manual(params: dict):
     bounds = data.get("bounds")
 
     # 🔽 Corrige nome do arquivo com extensão e nome seguro
-    lat_str = str(params["lat"]).replace(".", "_")
-    lon_str = str(params["lon"]).replace(".", "_")
+    lat_str = f"{params['lat']:.5f}".replace(".", "_")
+    lon_str = f"{params['lon']:.5f}".replace(".", "_")
     nome_arquivo = f"repetidora_{lat_str}_{lon_str}.png"
+
     caminho_local = f"static/imagens/{nome_arquivo}"
 
     async with httpx.AsyncClient() as client:
@@ -577,19 +578,16 @@ def exportar_kmz():
         if not antena or not pivos or not os.path.exists(caminho_imagem) or not os.path.exists(caminho_bounds):
             return {"erro": "Dados insuficientes para exportar"}
 
-        # 🧭 Carrega bounds reais da imagem de sinal
         with open(caminho_bounds, "r") as f:
-            bounds = list(map(float, json.load(f)))  # garante que são floats
+            bounds = list(map(float, json.load(f)))
 
         kml = simplekml.Kml()
 
-        # Torre principal
         torre = kml.newpoint(name=f"📡 {antena['nome']}", coords=[(antena["lon"], antena["lat"])])
         torre.description = f"Torre principal\nAltura: {antena['altura']}m"
         torre.style.iconstyle.icon.href = "cloudrf.png"
         torre.style.iconstyle.scale = 1.5
 
-        # Pivôs com status
         for p in pivos:
             cor = "ff0000ff" if p.get("fora") else "ff00ff00"
             ponto = kml.newpoint(name=p["nome"], coords=[(p["lon"], p["lat"])])
@@ -597,7 +595,6 @@ def exportar_kmz():
             ponto.style.iconstyle.color = cor
             ponto.style.iconstyle.scale = 1.2
 
-        # Círculos
         for ciclo in ciclos:
             poligono = kml.newpolygon(name=ciclo["nome"])
             poligono.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
@@ -605,7 +602,6 @@ def exportar_kmz():
             poligono.style.linestyle.color = "ff0000ff"
             poligono.style.linestyle.width = 2
 
-        # GroundOverlay da antena principal
         ground = kml.newgroundoverlay(name="Cobertura Principal")
         ground.icon.href = "sinal.png"
         ground.latlonbox.north = bounds[2]
@@ -614,7 +610,6 @@ def exportar_kmz():
         ground.latlonbox.west = bounds[1]
         ground.color = "88ffffff"
 
-        # Repetidoras
         repetidoras_adicionadas = []
         for nome_arquivo in os.listdir("static/imagens"):
             if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
@@ -633,8 +628,10 @@ def exportar_kmz():
                     continue
 
                 delta = 0.0036
+                nome_limpo = os.path.basename(nome_arquivo).replace("..", ".")
+
                 overlay = kml.newgroundoverlay(name=f"Repetidora em {lat:.4f},{lon:.4f}")
-                overlay.icon.href = os.path.basename(nome_arquivo)
+                overlay.icon.href = nome_limpo
                 overlay.latlonbox.north = lat + delta
                 overlay.latlonbox.south = lat - delta
                 overlay.latlonbox.east = lon + delta
@@ -646,9 +643,8 @@ def exportar_kmz():
                 ponto.style.iconstyle.scale = 1.2
                 ponto.description = f"Repetidora em {lat:.4f}, {lon:.4f}"
 
-                repetidoras_adicionadas.append(caminho)
+                repetidoras_adicionadas.append((caminho, nome_limpo))
 
-        # Exporta
         caminho_kml = "arquivos/estudo.kml"
         kml.save(caminho_kml)
 
@@ -659,8 +655,8 @@ def exportar_kmz():
             kmz.write(caminho_kml, "estudo.kml")
             kmz.write(caminho_imagem, "sinal.png")
             kmz.write("static/imagens/cloudrf.png", "cloudrf.png")
-            for rep_img in repetidoras_adicionadas:
-                kmz.write(rep_img, os.path.basename(rep_img))
+            for rep_img, nome_limpo in repetidoras_adicionadas:
+                kmz.write(rep_img, nome_limpo)
 
         return FileResponse(
             caminho_kmz_zip,
