@@ -520,19 +520,24 @@ async def perfil_elevacao(req: dict):
     dados = resp.json()
     elevs = [r["elevation"] for r in dados["results"]]
 
-    # ⛰️ Visada com base na elevação real dos pontos
+    # ⛰️ Calcula linha de visada entre antena e receiver
     elev1 = elevs[0] + alt1
     elev2 = elevs[-1] + alt2
-    linha_visada = [elev1 + i * (elev2 - elev1) / steps for i in range(steps + 1)]
+    linha_visada = [
+        elev1 + i * (elev2 - elev1) / steps
+        for i in range(steps + 1)
+    ]
 
+    # 🔎 Detecta o ponto de maior elevação acima da linha de visada
+    max_altura = -1
     bloqueio = None
     for i in range(1, steps):
-        if elevs[i] > linha_visada[i]:
+        if elevs[i] > linha_visada[i] and elevs[i] > max_altura:
+            max_altura = elevs[i]
             bloqueio = {
                 "lat": amostrados[i][0],
                 "lon": amostrados[i][1],
                 "elev": elevs[i]
             }
-            break
 
     return {"bloqueio": bloqueio, "elevacao": elevs}

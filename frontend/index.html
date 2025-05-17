@@ -213,10 +213,10 @@
       <button type="submit" class="glass-button bg-green-700 hover:bg-green-800 w-56">📁 Carregar KMZ</button>
     </form>
 
-    <button id="simular-btn" class="glass-button bg-blue-600 hover:bg-blue-700 hidden w-56">📶 Rodar Estudo de Sinal</button>
-      <button id="btn-diagnostico" class="glass-button bg-yellow-600 hover:bg-yellow-700 w-56">
+     <button id="simular-btn" class="glass-button bg-blue-600 hover:bg-blue-700 hidden w-56">📶 Rodar Estudo de Sinal</button>
+      <button id="btn-diagnostico" class="glass-button bg-yellow-600 hover:bg-yellow-700 w-56 hidden">
       📈 Diagnóstico de Visada
-    </button>
+     </button>
     <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm w-56">🔄 Resetar</button>
   </div>
 
@@ -678,6 +678,7 @@ data.bombas.forEach(bomba => {
 
       atualizarPainel(data.pivos, antenaGlobal, antenaGlobal.altura_receiver, data.bombas);
       mostrarMensagem("📡 Estudo de sinal concluído com sucesso.");
+      document.getElementById("btn-diagnostico").classList.remove("hidden");
       const btnSimular = document.getElementById("simular-btn");
       btnSimular.disabled = true;
       btnSimular.classList.add("opacity-50", "cursor-not-allowed");
@@ -1055,6 +1056,10 @@ let linhasDiagnostico = [];
 let marcadoresBloqueio = [];
 
 document.getElementById("btn-diagnostico").addEventListener("click", async () => {
+if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
+    mostrarMensagem("⚠️ Rode o estudo de sinal primeiro!", "erro");
+    return;
+  }
   if (!antenaGlobal || Object.keys(pivotsMap).length === 0) return;
 
   // Limpa diagnósticos anteriores
@@ -1064,6 +1069,8 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
   marcadoresBloqueio = [];
 
   for (const [nome, marcador] of Object.entries(pivotsMap)) {
+  // ⚠️ Só diagnosticar pivôs com marcador vermelho
+  if (marcador.options.fillColor !== 'red') continue;
     const latlonAntena = [antenaGlobal.lat, antenaGlobal.lon];
     const latlonPivo = [marcador.getLatLng().lat, marcador.getLatLng().lng];
 
