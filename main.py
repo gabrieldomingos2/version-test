@@ -566,12 +566,15 @@ def exportar_kmz():
     try:
         antena, pivos, ciclos, _ = parse_kmz("arquivos/entrada.kmz")
         caminho_imagem = "static/imagens/sinal.png"
+        caminho_bounds = "static/imagens/sinal_bounds.json"
 
-        if not antena or not pivos or not os.path.exists(caminho_imagem):
+        if not antena or not pivos or not os.path.exists(caminho_imagem) or not os.path.exists(caminho_bounds):
             return {"erro": "Dados insuficientes para exportar"}
 
-        # Bounds da imagem principal
-        bounds = [-21.9361, -47.0956, -21.7426, -46.9021]  # [sul, oeste, norte, leste]
+        # 🧭 Carrega bounds reais da imagem de sinal
+        with open(caminho_bounds, "r") as f:
+            bounds = json.load(f)
+        bounds = list(map(float, bounds))  # Garante que são floats
 
         kml = simplekml.Kml()
 
@@ -583,13 +586,13 @@ def exportar_kmz():
 
         # Pivôs com status
         for p in pivos:
-            cor = "ff0000ff" if p.get("fora") else "ff00ff00"  # RGBA inversa
+            cor = "ff0000ff" if p.get("fora") else "ff00ff00"  # RGBA invertido
             ponto = kml.newpoint(name=p["nome"], coords=[(p["lon"], p["lat"])])
             ponto.description = "❌ Fora da cobertura" if p.get("fora") else "✅ Coberto"
             ponto.style.iconstyle.color = cor
             ponto.style.iconstyle.scale = 1.2
 
-        # Círculos dos pivôs
+        # Círculos dos pivôs (LineString transformado em Polygon)
         for ciclo in ciclos:
             poligono = kml.newpolygon(name=ciclo["nome"])
             poligono.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
@@ -597,7 +600,7 @@ def exportar_kmz():
             poligono.style.linestyle.color = "ff0000ff"  # vermelho forte
             poligono.style.linestyle.width = 2
 
-        # GroundOverlay da antena principal
+        # GroundOverlay da cobertura principal
         ground = kml.newgroundoverlay(name="Cobertura Principal")
         ground.icon.href = "sinal.png"
         ground.latlonbox.north = bounds[2]
@@ -606,22 +609,21 @@ def exportar_kmz():
         ground.latlonbox.west = bounds[1]
         ground.color = "88ffffff"
 
-        # 🔁 Detecta repetidoras salvas como PNG com nome padrão e adiciona overlays
+        # 🔁 Overlays das repetidoras
         repetidoras_adicionadas = []
         for nome_arquivo in os.listdir("static/imagens"):
             if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
                 caminho = os.path.join("static/imagens", nome_arquivo)
 
-                # Extrai coordenadas do nome
                 match = re.search(r"repetidora_([-\d_]+)_([-\d_]+).png", nome_arquivo)
                 if not match:
                     continue
+
                 lat_str, lon_str = match.groups()
                 lat = float(lat_str.replace("_", "."))
                 lon = float(lon_str.replace("_", "."))
 
-                # Define bounds padrão 800x800 metros (0.0072 ~ 800m em graus aprox)
-                delta = 0.0036
+                delta = 0.0036  # ~800m
                 overlay = kml.newgroundoverlay(name=f"Repetidora em {lat:.4f},{lon:.4f}")
                 overlay.icon.href = nome_arquivo
                 overlay.latlonbox.north = lat + delta
@@ -630,23 +632,21 @@ def exportar_kmz():
                 overlay.latlonbox.west = lon - delta
                 overlay.color = "77ffffff"
 
-                # Adiciona marcador também
-                ponto = kml.newpoint(name=f"📡 Repetidora", coords=[(lon, lat)])
+                ponto = kml.newpoint(name="📡 Repetidora", coords=[(lon, lat)])
                 ponto.style.iconstyle.icon.href = "cloudrf.png"
                 ponto.style.iconstyle.scale = 1.2
-                ponto.description = f"Repetidora em {lat:.4f},{lon:.4f}"
+                ponto.description = f"Repetidora em {lat:.4f}, {lon:.4f}"
 
                 repetidoras_adicionadas.append(caminho)
 
-        # Salva o KML temporário
+        # Salva o KML
         caminho_kml = "arquivos/estudo.kml"
         kml.save(caminho_kml)
 
-        # Prepara nome do arquivo KMZ final
+        # Cria KMZ com tudo
         nome_kmz = f"estudo-irricontrol-{datetime.now().strftime('%Y%m%d-%H%M')}.kmz"
         caminho_kmz_zip = f"arquivos/{nome_kmz}"
 
-        # Cria o KMZ
         with zipfile.ZipFile(caminho_kmz_zip, "w") as kmz:
             kmz.write(caminho_kml, "estudo.kml")
             kmz.write(caminho_imagem, "sinal.png")
@@ -662,4 +662,5 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
+
 
