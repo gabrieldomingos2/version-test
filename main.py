@@ -493,7 +493,7 @@ async def reavaliar_pivos(data: dict):
 
 from math import sqrt
 
-@app.post("/perfil_elevacao")
+@@app.post("/perfil_elevacao")
 async def perfil_elevacao(req: dict):
     pontos = req.get("pontos", [])
     alt1 = req.get("altura_antena", 15)
@@ -530,14 +530,30 @@ async def perfil_elevacao(req: dict):
 
     # 🔎 Detecta o ponto de maior elevação acima da linha de visada
     max_altura = -1
-    bloqueio = None
+    bloqueio_real = None
+    idx_max = 1  # começa do segundo ponto pra evitar sobrepor antena
+
     for i in range(1, steps):
-        if elevs[i] > linha_visada[i] and elevs[i] > max_altura:
-            max_altura = elevs[i]
-            bloqueio = {
+        elev = elevs[i]
+        visada = linha_visada[i]
+
+        if elev > visada and elev > max_altura:
+            max_altura = elev
+            bloqueio_real = {
                 "lat": amostrados[i][0],
                 "lon": amostrados[i][1],
-                "elev": elevs[i]
+                "elev": elev
             }
 
+        if elev > elevs[idx_max]:
+            idx_max = i
+
+    # Se houver um bloqueio real, use ele; senão, mostra o ponto mais alto como fallback visual
+    bloqueio = bloqueio_real or {
+        "lat": amostrados[idx_max][0],
+        "lon": amostrados[idx_max][1],
+        "elev": elevs[idx_max]
+    }
+
     return {"bloqueio": bloqueio, "elevacao": elevs}
+
