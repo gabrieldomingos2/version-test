@@ -633,11 +633,11 @@ def exportar_kmz():
                     continue
 
                 # Aumenta o delta para as repetidoras ficarem maiores
-                delta = 0.015  # aqui que muda, valor maior que 0.0036 original
+                delta = 0.015  # valor maior para aumentar o tamanho da repetidora no mapa
                 nome_limpo = nome_arquivo
 
                 overlay = kml.newgroundoverlay(name=f"Repetidora em {lat:.4f},{lon:.4f}")
-                overlay.icon.href = nome_limpo  # deve bater exatamente com o arquivo dentro do KMZ
+                overlay.icon.href = nome_limpo  # nome do arquivo exato para overlay
                 overlay.latlonbox.north = lat + delta
                 overlay.latlonbox.south = lat - delta
                 overlay.latlonbox.east = lon + delta
@@ -673,3 +673,4 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
+
