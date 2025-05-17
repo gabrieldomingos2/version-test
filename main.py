@@ -263,9 +263,10 @@ async def processar_kmz(file: UploadFile = File(...)):
 @app.post("/simular_sinal")
 async def simular_sinal(antena: dict):
     print("📡 Antena recebida:", antena)
-    
+
     if not antena or not all(k in antena for k in ("lat", "lon", "altura")):
         return {"erro": "Dados incompletos para simulação. Antena:", "antena": antena}
+
     payload = {
         "version": "CloudRF-API-v3.23",
         "site": "Brazil V6",
@@ -314,11 +315,17 @@ async def simular_sinal(antena: dict):
     imagem_url = data.get("PNG_WGS84")
     bounds = data.get("bounds")
 
+    # Baixa a imagem de cobertura
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
         with open("static/imagens/sinal.png", "wb") as f:
             f.write(r.content)
 
+    # Salva bounds reais usados na imagem de sinal
+    with open("static/imagens/sinal_bounds.json", "w") as f:
+        json.dump(bounds, f)
+
+    # Reprocessa os pivôs com a imagem atual
     _, pivos, _, _ = parse_kmz("arquivos/entrada.kmz")
     pivos_com_status = detectar_pivos_fora(bounds, pivos)
 
@@ -328,7 +335,6 @@ async def simular_sinal(antena: dict):
         "status": "Simulação concluída",
         "pivos": pivos_com_status
     }
-
 
 @app.post("/simular_manual")
 async def simular_manual(params: dict):
@@ -662,5 +668,4 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
-
-
+    
