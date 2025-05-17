@@ -564,50 +564,102 @@ async def perfil_elevacao(req: dict):
 @app.get("/exportar_kmz")
 def exportar_kmz():
     try:
-        antena, pivos, _, _ = parse_kmz("arquivos/entrada.kmz")
+        antena, pivos, ciclos, _ = parse_kmz("arquivos/entrada.kmz")
         caminho_imagem = "static/imagens/sinal.png"
 
         if not antena or not pivos or not os.path.exists(caminho_imagem):
             return {"erro": "Dados insuficientes para exportar"}
 
-        # Bounds da imagem (leia isso de onde você armazenar — aqui exemplo fixo)
+        # Bounds da imagem principal
         bounds = [-21.9361, -47.0956, -21.7426, -46.9021]  # [sul, oeste, norte, leste]
 
         kml = simplekml.Kml()
 
         # Torre principal
         torre = kml.newpoint(name=f"📡 {antena['nome']}", coords=[(antena["lon"], antena["lat"])])
-        torre.description = f"Altura: {antena['altura']}m"
-        torre.style.iconstyle.icon.href = "http://maps.google.com/mapfiles/kml/shapes/antenna.png"
+        torre.description = f"Torre principal\nAltura: {antena['altura']}m"
+        torre.style.iconstyle.icon.href = "cloudrf.png"
+        torre.style.iconstyle.scale = 1.5
 
-        # Pivôs
+        # Pivôs com status
         for p in pivos:
-            cor = "ff0000ff" if p.get("fora") else "ff00ff00"
+            cor = "ff0000ff" if p.get("fora") else "ff00ff00"  # RGBA inversa
             ponto = kml.newpoint(name=p["nome"], coords=[(p["lon"], p["lat"])])
+            ponto.description = "❌ Fora da cobertura" if p.get("fora") else "✅ Coberto"
             ponto.style.iconstyle.color = cor
             ponto.style.iconstyle.scale = 1.2
-            ponto.description = "❌ Fora da cobertura" if p.get("fora") else "✅ Coberto"
 
-        # Imagem do sinal como GroundOverlay
-        ground = kml.newgroundoverlay(name="Cobertura de Sinal")
+        # Círculos dos pivôs
+        for ciclo in ciclos:
+            poligono = kml.newpolygon(name=ciclo["nome"])
+            poligono.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
+            poligono.style.polystyle.color = "33ff0000"  # vermelho claro semitransparente
+            poligono.style.linestyle.color = "ff0000ff"  # vermelho forte
+            poligono.style.linestyle.width = 2
+
+        # GroundOverlay da antena principal
+        ground = kml.newgroundoverlay(name="Cobertura Principal")
         ground.icon.href = "sinal.png"
         ground.latlonbox.north = bounds[2]
         ground.latlonbox.south = bounds[0]
         ground.latlonbox.east = bounds[3]
         ground.latlonbox.west = bounds[1]
-        ground.color = "88ffffff"  # semitransparente
+        ground.color = "88ffffff"
 
-        # Salva o KML
+        # 🔁 Detecta repetidoras salvas como PNG com nome padrão e adiciona overlays
+        repetidoras_adicionadas = []
+        for nome_arquivo in os.listdir("static/imagens"):
+            if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
+                caminho = os.path.join("static/imagens", nome_arquivo)
+
+                # Extrai coordenadas do nome
+                match = re.search(r"repetidora_([-\d_]+)_([-\d_]+).png", nome_arquivo)
+                if not match:
+                    continue
+                lat_str, lon_str = match.groups()
+                lat = float(lat_str.replace("_", "."))
+                lon = float(lon_str.replace("_", "."))
+
+                # Define bounds padrão 800x800 metros (0.0072 ~ 800m em graus aprox)
+                delta = 0.0036
+                overlay = kml.newgroundoverlay(name=f"Repetidora em {lat:.4f},{lon:.4f}")
+                overlay.icon.href = nome_arquivo
+                overlay.latlonbox.north = lat + delta
+                overlay.latlonbox.south = lat - delta
+                overlay.latlonbox.east = lon + delta
+                overlay.latlonbox.west = lon - delta
+                overlay.color = "77ffffff"
+
+                # Adiciona marcador também
+                ponto = kml.newpoint(name=f"📡 Repetidora", coords=[(lon, lat)])
+                ponto.style.iconstyle.icon.href = "cloudrf.png"
+                ponto.style.iconstyle.scale = 1.2
+                ponto.description = f"Repetidora em {lat:.4f},{lon:.4f}"
+
+                repetidoras_adicionadas.append(caminho)
+
+        # Salva o KML temporário
         caminho_kml = "arquivos/estudo.kml"
         kml.save(caminho_kml)
 
-        # Gera o KMZ
-        caminho_kmz = f"arquivos/estudo-{datetime.now().strftime('%Y%m%d-%H%M')}.kmz"
-        with zipfile.ZipFile(caminho_kmz, "w") as kmz:
+        # Prepara nome do arquivo KMZ final
+        nome_kmz = f"estudo-irricontrol-{datetime.now().strftime('%Y%m%d-%H%M')}.kmz"
+        caminho_kmz_zip = f"arquivos/{nome_kmz}"
+
+        # Cria o KMZ
+        with zipfile.ZipFile(caminho_kmz_zip, "w") as kmz:
             kmz.write(caminho_kml, "estudo.kml")
             kmz.write(caminho_imagem, "sinal.png")
+            kmz.write("static/imagens/cloudrf.png", "cloudrf.png")
+            for rep_img in repetidoras_adicionadas:
+                kmz.write(rep_img, os.path.basename(rep_img))
 
-        return FileResponse(caminho_kmz, media_type="application/vnd.google-earth.kmz", filename=os.path.basename(caminho_kmz))
+        return FileResponse(
+            caminho_kmz_zip,
+            media_type="application/vnd.google-earth.kmz",
+            filename=nome_kmz
+        )
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
+
