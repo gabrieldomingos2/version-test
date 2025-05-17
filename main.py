@@ -620,7 +620,6 @@ def exportar_kmz():
             if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
                 caminho = os.path.join("static/imagens", nome_arquivo)
 
-                # Regex aprimorado para capturar números com ponto e underline
                 match = re.search(r"repetidora_(-?\d+(?:[\._]\d+)?)_(-?\d+(?:[\._]\d+)?)\.png", nome_arquivo)
                 if not match:
                     continue
@@ -634,10 +633,11 @@ def exportar_kmz():
                     continue
 
                 delta = 0.0036
-                nome_limpo = os.path.basename(nome_arquivo).replace("..", ".")
+                # Padroniza nome do arquivo para uso no overlay e dentro do KMZ
+                nome_limpo = f"repetidora_{lat:.5f}_{lon:.5f}.png".replace(".", "_")
 
                 overlay = kml.newgroundoverlay(name=f"Repetidora em {lat:.4f},{lon:.4f}")
-                overlay.icon.href = nome_limpo
+                overlay.icon.href = nome_limpo  # deve bater exatamente com o arquivo dentro do KMZ
                 overlay.latlonbox.north = lat + delta
                 overlay.latlonbox.south = lat - delta
                 overlay.latlonbox.east = lon + delta
@@ -673,3 +673,4 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
+

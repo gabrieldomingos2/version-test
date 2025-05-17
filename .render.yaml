@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: mp3-downloader
+    env: python
+    buildCommand: |
+      curl -L https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip -o ffmpeg.zip
+      unzip ffmpeg.zip -d ffmpeg
+      setx PATH "%PATH%;%CD%\ffmpeg\ffmpeg-release-essentials\bin"
+      python -m pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    plan: free
