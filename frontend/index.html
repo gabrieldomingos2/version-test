@@ -170,9 +170,6 @@
   <!-- Button to toggle simulation data panel -->
   <button id="toggle-painel" class="glass-button" title="Toggle simulation data">🧾</button>
 
-  <!-- Botão para abrir painel de otimização -->
-  <button id="toggle-otimizacao" class="glass-button" title="Otimização geral">⚙️</button>
-
   <!-- Button to toggle repeater panel -->
   <button id="toggle-repetidoras" class="glass-button" title="Manage repeaters">📍</button>
 
@@ -202,15 +199,6 @@
   <div id="painel-repetidoras" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 top-[calc(20px+320px)] z-[9998]">
     <h2 class="text-lg font-bold mb-2 text-green-300">📍 Repetidoras</h2>
     <div id="lista-repetidoras" class="space-y-2 text-sm"></div>
-  </div>
-
-  <!-- Painel de otimização -->
-  <div id="painel-otimizacao" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 top-[calc(20px+520px)] z-[9998]">
-  <h2 class="text-lg font-bold mb-2 text-yellow-400">⚙️ Otimização</h2>
-  <p id="percentual-cobertura">Cobertura: --%</p>
-  <p id="pivos-marginais">Pivôs marginais: --</p>
-  <p id="repetidoras-ativas">Repetidoras ativas: --</p>
-  <p id="sugestao-remover" class="text-green-300 mt-2">Sugestão: --</p>
   </div>
 
   <!-- Título central no topo -->
@@ -1091,7 +1079,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("toggle-painel").addEventListener("click", () => togglePainel("painel-dados"));
  });
 
- 
+
 let linhasDiagnostico = [];
 let marcadoresBloqueio = [];
 
@@ -1181,64 +1169,6 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
 
   mostrarMensagem("🔍 Diagnóstico de visada concluído.");
   });
-
-document.getElementById("toggle-otimizacao").addEventListener("click", async () => {
-  const pivos = Object.entries(pivotsMap).map(([nome, marcador]) => {
-    const { lat, lng } = marcador.getLatLng();
-    return { nome, lat, lon: lng };
-  });
-
-  const overlays = [];
-
-  if (antenaGlobal?.overlay && map.hasLayer(antenaGlobal.overlay)) {
-    const b = antenaGlobal.overlay.getBounds().toBBoxString().split(",").map(Number);
-    overlays.push({
-      imagem: "https://irricontrol-test.onrender.com/static/imagens/sinal.png",
-      bounds: [b[1], b[0], b[3], b[2]]
-    });
-  }
-
-  repetidoras.forEach(rep => {
-    if (rep.overlay && map.hasLayer(rep.overlay)) {
-      const b = rep.overlay.getBounds().toBBoxString().split(",").map(Number);
-      overlays.push({
-        imagem: `https://irricontrol-test.onrender.com/static/imagens/repetidora_${rep.marker.getLatLng().lat.toString().replace(".", "_")}_${rep.marker.getLatLng().lng.toString().replace(".", "_")}.png`,
-        bounds: [b[1], b[0], b[3], b[2]]
-      });
-    }
-  });
-
-  let contorno_fazenda = [];
-  try {
-    const contornoRes = await fetch("https://irricontrol-test.onrender.com/static/contorno_fazenda.json");
-    contorno_fazenda = await contornoRes.json();
-  } catch (e) {
-    mostrarMensagem("⚠️ Contorno da fazenda não encontrado!", "erro");
-    return;
-  }
-
-  const res = await fetch("https://irricontrol-test.onrender.com/painel_otimizacao", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pivos, overlays, contorno_fazenda })
-  });
-
-  const dados = await res.json();
-
-  if (dados.erro) {
-    mostrarMensagem(dados.erro, "erro");
-    return;
-  }
-
-  document.getElementById("percentual-cobertura").textContent = `Cobertura: ${dados.percentual_cobertura}%`;
-  document.getElementById("pivos-marginais").textContent = `Pivôs marginais: ${dados.pivos_marginais}`;
-  document.getElementById("repetidoras-ativas").textContent = `Repetidoras ativas: ${dados.repetidoras_ativas}`;
-  document.getElementById("sugestao-remover").textContent = `Sugestão: ${dados.sugestao}`;
-
-  const painel = document.getElementById("painel-otimizacao");
-  painel.classList.toggle("hidden");
-  reposicionarPaineisLaterais();
- });
 
 
 </script>
