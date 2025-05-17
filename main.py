@@ -3,16 +3,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+
 import os
 import zipfile
 import re
 import json
 import httpx
 import xml.etree.ElementTree as ET
+import simplekml
 
 from PIL import Image
 from statistics import mean
 from shapely.geometry import Polygon
+from datetime import datetime
 
 
 app = FastAPI()
@@ -557,3 +560,54 @@ async def perfil_elevacao(req: dict):
 
     return {"bloqueio": bloqueio, "elevacao": elevs}
 
+
+@app.get("/exportar_kmz")
+def exportar_kmz():
+    try:
+        antena, pivos, _, _ = parse_kmz("arquivos/entrada.kmz")
+        caminho_imagem = "static/imagens/sinal.png"
+
+        if not antena or not pivos or not os.path.exists(caminho_imagem):
+            return {"erro": "Dados insuficientes para exportar"}
+
+        # Bounds da imagem (leia isso de onde você armazenar — aqui exemplo fixo)
+        bounds = [-21.9361, -47.0956, -21.7426, -46.9021]  # [sul, oeste, norte, leste]
+
+        kml = simplekml.Kml()
+
+        # Torre principal
+        torre = kml.newpoint(name=f"📡 {antena['nome']}", coords=[(antena["lon"], antena["lat"])])
+        torre.description = f"Altura: {antena['altura']}m"
+        torre.style.iconstyle.icon.href = "http://maps.google.com/mapfiles/kml/shapes/antenna.png"
+
+        # Pivôs
+        for p in pivos:
+            cor = "ff0000ff" if p.get("fora") else "ff00ff00"
+            ponto = kml.newpoint(name=p["nome"], coords=[(p["lon"], p["lat"])])
+            ponto.style.iconstyle.color = cor
+            ponto.style.iconstyle.scale = 1.2
+            ponto.description = "❌ Fora da cobertura" if p.get("fora") else "✅ Coberto"
+
+        # Imagem do sinal como GroundOverlay
+        ground = kml.newgroundoverlay(name="Cobertura de Sinal")
+        ground.icon.href = "sinal.png"
+        ground.latlonbox.north = bounds[2]
+        ground.latlonbox.south = bounds[0]
+        ground.latlonbox.east = bounds[3]
+        ground.latlonbox.west = bounds[1]
+        ground.color = "88ffffff"  # semitransparente
+
+        # Salva o KML
+        caminho_kml = "arquivos/estudo.kml"
+        kml.save(caminho_kml)
+
+        # Gera o KMZ
+        caminho_kmz = f"arquivos/estudo-{datetime.now().strftime('%Y%m%d-%H%M')}.kmz"
+        with zipfile.ZipFile(caminho_kmz, "w") as kmz:
+            kmz.write(caminho_kml, "estudo.kml")
+            kmz.write(caminho_imagem, "sinal.png")
+
+        return FileResponse(caminho_kmz, media_type="application/vnd.google-earth.kmz", filename=os.path.basename(caminho_kmz))
+
+    except Exception as e:
+        return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
