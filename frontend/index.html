@@ -220,6 +220,13 @@
       <button id="btn-diagnostico" class="glass-button bg-yellow-600 hover:bg-yellow-700 w-56 hidden">
       📈 Diagnóstico de Visada
      </button>
+
+     <!-- Botão para baixar o KMZ -->
+     <button onclick="baixarKMZ()" class="glass-button bg-purple-700 hover:bg-purple-800 w-full mt-2 text-sm">
+      📥 Exportar KMZ
+     </button>
+
+
     <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm w-56">🔄 Resetar</button>
   </div>
 
@@ -1169,6 +1176,17 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
 
   mostrarMensagem("🔍 Diagnóstico de visada concluído.");
   });
+
+
+  function baixarKMZ() {
+  const link = document.createElement("a");
+  link.href = "https://irricontrol-test.onrender.com/exportar_kmz"; // atualiza se necessário
+  link.download = `estudo-irricontrol.kmz`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 
 
 </script>
