@@ -420,26 +420,32 @@ async def simular_manual(params: dict):
     imagem_url = data.get("PNG_WGS84")
     bounds = data.get("bounds")
 
-    # 🔽 Corrige nome do arquivo com extensão e nome seguro
+    if not imagem_url or not bounds:
+        return {"erro": "Resposta inválida da API CloudRF", "dados": data}
+
+    # 🔽 Corrige nome seguro do arquivo
     lat_str = f"{params['lat']:.5f}".replace(".", "_")
     lon_str = f"{params['lon']:.5f}".replace(".", "_")
     nome_arquivo = f"repetidora_{lat_str}_{lon_str}.png"
-
     caminho_local = f"static/imagens/{nome_arquivo}"
 
+    # ⬇️ Baixa e salva a imagem da repetidora
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
         with open(caminho_local, "wb") as f:
             f.write(r.content)
 
-        # 🔁 URL final acessível via frontend (Netlify)
+    # 🧭 Salva os bounds em um arquivo JSON junto da imagem
+    json_bounds_path = caminho_local.replace(".png", ".json")
+    with open(json_bounds_path, "w") as f:
+        json.dump({"bounds": bounds}, f)
+
     imagem_local_url = f"https://irricontrol-test.onrender.com/static/imagens/{nome_arquivo}"
 
-    # Recarrega os pivôs reais do KMZ
+    # Recarrega os pivôs
     _, pivos_atualizados, _, _ = parse_kmz("arquivos/entrada.kmz")
     pivos_anteriores = params.get("pivos_atuais", [])
-
-    # Detecta os pivôs fora da cobertura usando a nova imagem da repetidora
+    
     pivos_com_status = detectar_pivos_fora(
         bounds,
         pivos_atualizados,
@@ -452,6 +458,7 @@ async def simular_manual(params: dict):
         "bounds": bounds,
         "pivos": pivos_com_status
     }
+
 
 @app.post("/reavaliar_pivos")
 async def reavaliar_pivos(data: dict):
