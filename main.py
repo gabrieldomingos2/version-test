@@ -616,6 +616,17 @@ def exportar_kmz():
 
         # Imagens e pontos das repetidoras
         repetidoras_adicionadas = []
+
+        # Calcula largura e altura do overlay da antena principal com base nos bounds
+        largura_overlay = bounds[3] - bounds[1]  # east - west
+        altura_overlay = bounds[2] - bounds[0]   # north - south
+
+        # Ajusta escala para repetidoras (ex: 0.1 para ficar menor que antena)
+        fator_escala = 0.1
+
+        delta_lon = (largura_overlay * fator_escala) / 2
+        delta_lat = (altura_overlay * fator_escala) / 2
+
         for nome_arquivo in os.listdir("static/imagens"):
             if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
                 caminho = os.path.join("static/imagens", nome_arquivo)
@@ -632,16 +643,14 @@ def exportar_kmz():
                     print(f"⚠️ Erro ao converter coordenadas da repetidora: {lat_str}, {lon_str} → {e}")
                     continue
 
-                delta = 0.0036
-                # Use o nome do arquivo original, sem mexer para evitar erros no overlay
-                nome_limpo = nome_arquivo
+                nome_limpo = nome_arquivo  # usa nome original pra evitar conflito
 
                 overlay = kml.newgroundoverlay(name=f"Repetidora em {lat:.4f},{lon:.4f}")
-                overlay.icon.href = nome_limpo  # deve bater exatamente com o arquivo dentro do KMZ
-                overlay.latlonbox.north = lat + delta
-                overlay.latlonbox.south = lat - delta
-                overlay.latlonbox.east = lon + delta
-                overlay.latlonbox.west = lon - delta
+                overlay.icon.href = nome_limpo  # nome do arquivo dentro do KMZ
+                overlay.latlonbox.north = lat + delta_lat
+                overlay.latlonbox.south = lat - delta_lat
+                overlay.latlonbox.east = lon + delta_lon
+                overlay.latlonbox.west = lon - delta_lon
                 overlay.color = "77ffffff"
 
                 ponto = kml.newpoint(name="📡 Repetidora", coords=[(lon, lat)])
@@ -673,5 +682,4 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
-
 
