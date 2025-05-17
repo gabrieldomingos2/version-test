@@ -557,3 +557,62 @@ async def perfil_elevacao(req: dict):
 
     return {"bloqueio": bloqueio, "elevacao": elevs}
 
+@app.post("/painel_otimizacao")
+async def painel_otimizacao(data: dict):
+    from PIL import Image
+    from shapely.geometry import Polygon, Point
+
+    try:
+        overlays = data.get("overlays", [])
+        pivos = data.get("pivos", [])
+        coords_fazenda = data.get("contorno_fazenda", [])
+
+        if not overlays or not pivos or not coords_fazenda:
+            return {"erro": "Dados incompletos."}
+
+        pol_fazenda = Polygon(coords_fazenda)
+        imagem_path = overlays[0]["imagem"].replace("https://irricontrol-test.onrender.com/", "")
+
+        img = Image.open(imagem_path).convert("RGBA")
+        largura, altura = img.size
+
+        bounds = overlays[0]["bounds"]
+        sul, oeste, norte, leste = bounds
+
+        total = 0
+        cobertos = 0
+
+        for y in range(altura):
+            for x in range(largura):
+                lon = oeste + (x / largura) * (leste - oeste)
+                lat = norte - (y / altura) * (norte - sul)
+
+                if not pol_fazenda.contains(Point(lon, lat)):
+                    continue
+
+                _, _, _, a = img.getpixel((x, y))
+                total += 1
+                if a > 0:
+                    cobertos += 1
+
+        percentual = round((cobertos / total) * 100, 2) if total else 0
+
+        # Contar pivôs com cor marginal
+        marginais = 0
+        for p in pivos:
+            x = int((p["lon"] - oeste) / (leste - oeste) * largura)
+            y = int((norte - p["lat"]) / (norte - sul) * altura)
+            if 0 <= x < largura and 0 <= y < altura:
+                r, g, b, a = img.getpixel((x, y))
+                if a > 0 and (r, g, b) in [(255, 255, 102), (255, 204, 0), (255, 153, 0)]:  # amarelos
+                    marginais += 1
+
+        return {
+            "percentual_cobertura": percentual,
+            "pivos_marginais": marginais,
+            "repetidoras_ativas": len(overlays) - 1,  # exceto overlay da antena principal
+            "sugestao": "Revisar repetidoras redundantes (em breve)"
+        }
+
+    except Exception as e:
+        return {"erro": f"Falha ao calcular painel: {str(e)}"}

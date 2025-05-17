@@ -167,14 +167,20 @@
 <body class="bg-gray-900 text-white overflow-hidden">
 
 <div class="absolute top-4 right-4 z-[9999] flex gap-2">
-  <!-- Botão para abrir o painel de dados -->
-  <button id="toggle-painel" class="glass-button">🧾</button>
+  <!-- Button to toggle simulation data panel -->
+  <button id="toggle-painel" class="glass-button" title="Toggle simulation data">🧾</button>
 
-  <!-- Botão para abrir painel de repetidoras -->
-  <button id="toggle-repetidoras" class="glass-button">📍</button>
+  <!-- Botão para painel de otimização -->
+<button id="toggle-otimizacao" class="glass-button" title="Otimização geral">⚙️</button>
 
-  <!-- Botão para alternar legenda -->
-  <button id="toggle-legenda" class="glass-button">🏷️</button>
+  <!-- Button to toggle repeater panel -->
+  <button id="toggle-repetidoras" class="glass-button" title="Manage repeaters">📍</button>
+
+  <!-- Button to toggle line of sight -->
+  <button id="btn-visada" class="glass-button" title="Toggle line of sight">⛰️</button>
+
+  <!-- Button to toggle labels -->
+  <button id="toggle-legenda" class="glass-button" title="Toggle labels">🏷️</button>
 </div>
 
   <!-- Painel de dados da simulação -->
@@ -191,6 +197,15 @@
     <p id="total-repetidoras" class="mb-1">Total Repetidoras: --</p>
     <p id="total-bombas" class="mb-1 hidden">Casas de bomba: --</p>
   </div>
+
+  <!-- Painel de Otimização -->
+<div id="painel-otimizacao" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 top-[calc(20px+600px)] z-[9998]">
+  <h2 class="text-lg font-bold mb-2 text-yellow-400">⚙️ Otimização</h2>
+  <p id="percentual-cobertura">Cobertura: --%</p>
+  <p id="pivos-marginais">Pivôs marginais: --</p>
+  <p id="repetidoras-ativas">Repetidoras ativas: --</p>
+  <p id="sugestao-remover" class="text-green-300 mt-2">Sugestão: --</p>
+</div>
 
   <!-- Painel de repetidoras -->
   <div id="painel-repetidoras" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 top-[calc(20px+320px)] z-[9998]">
@@ -261,6 +276,23 @@
 <script>
   // Inicializa o mapa centralizado no Brasil
   const map = L.map('map').setView([-15, -55], 5);
+
+  const visadaLayerGroup = L.layerGroup().addTo(map);
+  let visadaVisivel = true;
+
+  document.getElementById("btn-visada").addEventListener("click", () => {
+  visadaVisivel = !visadaVisivel;
+  visadaLayerGroup.eachLayer(layer => {
+    if (layer.setStyle) {
+      layer.setStyle({ opacity: visadaVisivel ? 1 : 0 });
+    } else if (layer._icon) {
+      layer._icon.style.opacity = visadaVisivel ? 1 : 0;
+    }
+  });
+
+  document.getElementById("btn-visada").classList.toggle("opacity-50", !visadaVisivel);
+});
+
 
   // Camada satélite (Google)
   const satelite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
@@ -764,7 +796,15 @@ data.bombas.forEach(bomba => {
 
     // Volta pro zoom original
     map.setView([-15, -55], 5);
+
+    // Apaga linhas de elevação
+    visadaLayerGroup.clearLayers();
+    visadaVisivel = true;
+    document.getElementById("btn-visada").classList.remove("opacity-50");
+
+
   });
+
 </script>
 
 <script>
@@ -1045,11 +1085,62 @@ function togglePainel(id) {
   reposicionarPaineisLaterais();
 }
 
-// 🔄 MOVE ESTES DOIS PARA AQUI ⬇️
+
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("toggle-repetidoras").addEventListener("click", () => togglePainel("painel-repetidoras"));
   document.getElementById("toggle-painel").addEventListener("click", () => togglePainel("painel-dados"));
  });
+
+ document.getElementById("toggle-otimizacao").addEventListener("click", async () => {
+  const pivos = Object.entries(pivotsMap).map(([nome, marcador]) => {
+    const { lat, lng } = marcador.getLatLng();
+    return { nome, lat, lon: lng };
+  });
+
+  const overlays = [];
+
+  if (antenaGlobal?.overlay && map.hasLayer(antenaGlobal.overlay)) {
+    const b = antenaGlobal.overlay.getBounds().toBBoxString().split(",").map(Number);
+    overlays.push({
+      imagem: "https://irricontrol-test.onrender.com/static/imagens/sinal.png",
+      bounds: [b[1], b[0], b[3], b[2]]
+    });
+  }
+
+  repetidoras.forEach(rep => {
+    if (rep.overlay && map.hasLayer(rep.overlay)) {
+      const b = rep.overlay.getBounds().toBBoxString().split(",").map(Number);
+      overlays.push({
+        imagem: `https://irricontrol-test.onrender.com/static/imagens/repetidora_${rep.marker.getLatLng().lat.toString().replace(".", "_")}_${rep.marker.getLatLng().lng.toString().replace(".", "_")}.png`,
+        bounds: [b[1], b[0], b[3], b[2]]
+      });
+    }
+  });
+
+  const contornoRes = await fetch("/static/contorno_fazenda.json");
+  const contorno_fazenda = await contornoRes.json();
+
+  const res = await fetch("https://irricontrol-test.onrender.com/painel_otimizacao", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pivos, overlays, contorno_fazenda })
+  });
+
+  const dados = await res.json();
+
+  if (dados.erro) {
+    mostrarMensagem(dados.erro, "erro");
+    return;
+  }
+
+  document.getElementById("percentual-cobertura").textContent = `Cobertura: ${dados.percentual_cobertura}%`;
+  document.getElementById("pivos-marginais").textContent = `Pivôs marginais: ${dados.pivos_marginais}`;
+  document.getElementById("repetidoras-ativas").textContent = `Repetidoras ativas: ${dados.repetidoras_ativas}`;
+  document.getElementById("sugestao-remover").textContent = `Sugestão: ${dados.sugestao}`;
+
+  document.getElementById("painel-otimizacao").classList.toggle("hidden");
+  reposicionarPaineisLaterais();
+});
 
 
 let linhasDiagnostico = [];
@@ -1061,6 +1152,7 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
     return;
   }
   if (!antenaGlobal || Object.keys(pivotsMap).length === 0) return;
+
 
   // Limpa diagnósticos anteriores
   linhasDiagnostico.forEach(l => map.removeLayer(l));
@@ -1078,7 +1170,7 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
     const linha = L.polyline([latlonAntena, latlonPivo], {
     className: 'linha-futurista'
     }).addTo(map);
-    linhasDiagnostico.push(linha);
+    visadaLayerGroup.addLayer(linha);
 
     // Após 2 segundos, troca a classe para uma linha estável
     setTimeout(() => {
@@ -1126,6 +1218,8 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
       entre a antena e <strong>${nome}</strong>
     </div>
   `);
+
+  visadaLayerGroup.addLayer(marker);
 
 
         
