@@ -614,42 +614,45 @@ def exportar_kmz():
         ground.latlonbox.west = bounds[1]
         ground.color = "88ffffff"
 
-        # Imagens e pontos das repetidoras
+        # Repetidoras com overlay
         repetidoras_adicionadas = []
         for nome_arquivo in os.listdir("static/imagens"):
             if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
                 caminho = os.path.join("static/imagens", nome_arquivo)
+                json_path = caminho.replace(".png", ".json")
 
-                match = re.search(r"repetidora_(-?\d+(?:[\._]\d+)?)_(-?\d+(?:[\._]\d+)?)\.png", nome_arquivo)
-                if not match:
+                if not os.path.exists(json_path):
+                    print(f"⚠️ JSON com bounds não encontrado para {nome_arquivo}")
                     continue
 
-                lat_str, lon_str = match.groups()
                 try:
-                    lat = float(lat_str.replace("_", ".").replace("..", "."))
-                    lon = float(lon_str.replace("_", ".").replace("..", "."))
-                except ValueError as e:
-                    print(f"⚠️ Erro ao converter coordenadas da repetidora: {lat_str}, {lon_str} → {e}")
+                    with open(json_path, "r") as f:
+                        bounds_rep = json.load(f)["bounds"]
+                except Exception as e:
+                    print(f"⚠️ Erro ao carregar bounds do JSON: {json_path} → {e}")
                     continue
 
-                # Aumenta o delta para as repetidoras ficarem maiores
-                delta = 0.015  # valor maior para aumentar o tamanho da repetidora no mapa
                 nome_limpo = nome_arquivo
 
-                overlay = kml.newgroundoverlay(name=f"Repetidora em {lat:.4f},{lon:.4f}")
-                overlay.icon.href = nome_limpo  # nome do arquivo exato para overlay
-                overlay.latlonbox.north = lat + delta
-                overlay.latlonbox.south = lat - delta
-                overlay.latlonbox.east = lon + delta
-                overlay.latlonbox.west = lon - delta
+                overlay = kml.newgroundoverlay(name=f"Repetidora {nome_arquivo.replace('.png','')}")
+                overlay.icon.href = nome_limpo
+                overlay.latlonbox.south = bounds_rep[0]
+                overlay.latlonbox.west = bounds_rep[1]
+                overlay.latlonbox.north = bounds_rep[2]
+                overlay.latlonbox.east = bounds_rep[3]
                 overlay.color = "77ffffff"
 
-                ponto = kml.newpoint(name="📡 Repetidora", coords=[(lon, lat)])
+                # Marca de posição da repetidora
+                lat_centro = (bounds_rep[0] + bounds_rep[2]) / 2
+                lon_centro = (bounds_rep[1] + bounds_rep[3]) / 2
+
+                ponto = kml.newpoint(name="📡 Repetidora", coords=[(lon_centro, lat_centro)])
                 ponto.style.iconstyle.icon.href = "cloudrf.png"
                 ponto.style.iconstyle.scale = 1.2
-                ponto.description = f"Repetidora em {lat:.4f}, {lon:.4f}"
+                ponto.description = f"Repetidora centralizada em {lat_centro:.4f}, {lon_centro:.4f}"
 
                 repetidoras_adicionadas.append((caminho, nome_limpo))
+                repetidoras_adicionadas.append((json_path, nome_limpo.replace(".png", ".json")))
 
         # Exporta o KML e empacota tudo como KMZ
         caminho_kml = "arquivos/estudo.kml"
@@ -662,8 +665,8 @@ def exportar_kmz():
             kmz.write(caminho_kml, "estudo.kml")
             kmz.write(caminho_imagem, "sinal.png")
             kmz.write("static/imagens/cloudrf.png", "cloudrf.png")
-            for rep_img, nome_limpo in repetidoras_adicionadas:
-                kmz.write(rep_img, nome_limpo)
+            for arquivo, nome_destino in repetidoras_adicionadas:
+                kmz.write(arquivo, nome_destino)
 
         return FileResponse(
             caminho_kmz_zip,
@@ -673,4 +676,5 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
-
+    
+    
