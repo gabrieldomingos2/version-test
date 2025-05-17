@@ -583,11 +583,13 @@ def exportar_kmz():
 
         kml = simplekml.Kml()
 
+        # Torre principal
         torre = kml.newpoint(name=f"📡 {antena['nome']}", coords=[(antena["lon"], antena["lat"])])
         torre.description = f"Torre principal\nAltura: {antena['altura']}m"
         torre.style.iconstyle.icon.href = "cloudrf.png"
         torre.style.iconstyle.scale = 1.5
 
+        # Pivôs
         for p in pivos:
             cor = "ff0000ff" if p.get("fora") else "ff00ff00"
             ponto = kml.newpoint(name=p["nome"], coords=[(p["lon"], p["lat"])])
@@ -595,6 +597,7 @@ def exportar_kmz():
             ponto.style.iconstyle.color = cor
             ponto.style.iconstyle.scale = 1.2
 
+        # Círculos dos pivôs
         for ciclo in ciclos:
             poligono = kml.newpolygon(name=ciclo["nome"])
             poligono.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
@@ -602,6 +605,7 @@ def exportar_kmz():
             poligono.style.linestyle.color = "ff0000ff"
             poligono.style.linestyle.width = 2
 
+        # Imagem da antena principal
         ground = kml.newgroundoverlay(name="Cobertura Principal")
         ground.icon.href = "sinal.png"
         ground.latlonbox.north = bounds[2]
@@ -610,12 +614,14 @@ def exportar_kmz():
         ground.latlonbox.west = bounds[1]
         ground.color = "88ffffff"
 
+        # Imagens e pontos das repetidoras
         repetidoras_adicionadas = []
         for nome_arquivo in os.listdir("static/imagens"):
             if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
                 caminho = os.path.join("static/imagens", nome_arquivo)
 
-                match = re.search(r"repetidora_([-\d_]+)_([-\d_]+)\.png", nome_arquivo)
+                # Regex aprimorado para capturar números com ponto e underline
+                match = re.search(r"repetidora_(-?\d+(?:[\._]\d+)?)_(-?\d+(?:[\._]\d+)?)\.png", nome_arquivo)
                 if not match:
                     continue
 
@@ -645,6 +651,7 @@ def exportar_kmz():
 
                 repetidoras_adicionadas.append((caminho, nome_limpo))
 
+        # Exporta o KML e empacota tudo como KMZ
         caminho_kml = "arquivos/estudo.kml"
         kml.save(caminho_kml)
 
