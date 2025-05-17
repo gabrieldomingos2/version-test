@@ -493,7 +493,7 @@ async def reavaliar_pivos(data: dict):
 
 from math import sqrt
 
-@@app.post("/perfil_elevacao")
+@app.post("/perfil_elevacao")
 async def perfil_elevacao(req: dict):
     pontos = req.get("pontos", [])
     alt1 = req.get("altura_antena", 15)
