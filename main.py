@@ -243,11 +243,14 @@ async def processar_kmz(file: UploadFile = File(...)):
         if not antena:
             return {"erro": "Antena não encontrada no KMZ"}
 
+        # Garante que o JSON seja gerado mesmo se vazio
+        coords_fazenda = []
         if ciclos:
             maior = max(ciclos, key=lambda c: len(c["coordenadas"]))
             coords_fazenda = [[lon, lat] for lat, lon in maior["coordenadas"]]
-            with open("static/contorno_fazenda.json", "w") as f:
-                json.dump(coords_fazenda, f)
+
+        with open("static/contorno_fazenda.json", "w") as f:
+            json.dump(coords_fazenda, f)
 
         return {
             "antena": antena,
@@ -259,7 +262,6 @@ async def processar_kmz(file: UploadFile = File(...)):
     except Exception as e:
         print("❌ Erro em /processar_kmz:", str(e))
         return {"erro": f"Erro interno ao processar KMZ: {str(e)}"}
-
 
 
 @app.post("/simular_sinal")
