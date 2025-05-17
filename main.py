@@ -633,11 +633,10 @@ def exportar_kmz():
                     continue
 
                 delta = 0.0036
-                # Padroniza nome do arquivo para uso no overlay e dentro do KMZ
                 nome_limpo = f"repetidora_{lat:.5f}_{lon:.5f}.png".replace(".", "_")
 
                 overlay = kml.newgroundoverlay(name=f"Repetidora em {lat:.4f},{lon:.4f}")
-                overlay.icon.href = nome_limpo  # deve bater exatamente com o arquivo dentro do KMZ
+                overlay.icon.href = nome_limpo
                 overlay.latlonbox.north = lat + delta
                 overlay.latlonbox.south = lat - delta
                 overlay.latlonbox.east = lon + delta
