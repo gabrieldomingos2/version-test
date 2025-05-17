@@ -525,84 +525,14 @@ async def perfil_elevacao(req: dict):
     elev2 = elevs[-1] + alt2
     linha_visada = [elev1 + i * (elev2 - elev1) / steps for i in range(steps + 1)]
 
-    pico_mais_alto = None
-    maior_diferenca = -float("inf")
-
+    bloqueio = None
     for i in range(1, steps):
-        diferenca = elevs[i] - linha_visada[i]
-        if diferenca > 0 and diferenca > maior_diferenca:
-            maior_diferenca = diferenca
-            pico_mais_alto = {
+        if elevs[i] > linha_visada[i]:
+            bloqueio = {
                 "lat": amostrados[i][0],
                 "lon": amostrados[i][1],
                 "elev": elevs[i]
             }
+            break
 
-    return {
-        "bloqueio": pico_mais_alto,
-        "elevacao": elevs
-    }
-
-
-@app.post("/diagnostico_automatico")
-async def diagnostico_automatico(payload: dict):
-    antena = payload.get("antena", {})
-    pivos = payload.get("pivos", [])
-
-    if not antena or not pivos:
-        return {"erro": "Antena ou pivôs ausentes no payload."}
-
-    altura_antena = antena.get("altura", 15)
-    altura_receiver = antena.get("altura_receiver", 3)
-
-    bloqueios = []
-
-    for pivo in pivos:
-        if not pivo.get("fora", False):
-            continue
-
-        coord1 = (antena["lat"], antena["lon"])
-        coord2 = (pivo["lat"], pivo["lon"])
-
-        steps = 50
-        amostrados = [
-            (
-                coord1[0] + (coord2[0] - coord1[0]) * i / steps,
-                coord1[1] + (coord2[1] - coord1[1]) * i / steps
-            )
-            for i in range(steps + 1)
-        ]
-
-        coords_param = "|".join([f"{lat},{lon}" for lat, lon in amostrados])
-        url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
-
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url)
-        if resp.status_code != 200:
-            continue
-
-        dados = resp.json()
-        elevs = [r["elevation"] for r in dados["results"]]
-
-        elev1 = elevs[0] + altura_antena
-        elev2 = elevs[-1] + altura_receiver
-        linha_visada = [elev1 + i * (elev2 - elev1) / steps for i in range(steps + 1)]
-
-        ponto_maior = None
-        maior_diferenca = 0
-
-        for i in range(1, steps):
-            diferenca = elevs[i] - linha_visada[i]
-            if diferenca > maior_diferenca:
-                maior_diferenca = diferenca
-                ponto_maior = {
-                    "lat": amostrados[i][0],
-                    "lon": amostrados[i][1],
-                    "elev": elevs[i],
-                    "pivo": pivo["nome"]
-                }
-
-        if ponto_maior:
-            bloqueios.append(ponto_maior)
-
-    return {"bloqueios": bloqueios}
+    return {"bloqueio": bloqueio, "elevacao": elevs}
