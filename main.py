@@ -10,6 +10,11 @@ import json
 import httpx
 import xml.etree.ElementTree as ET
 
+# Garante que as pastas exigidas existam, senão Render derruba o app
+os.makedirs("static/imagens", exist_ok=True)
+os.makedirs("arquivos", exist_ok=True)
+
+
 from PIL import Image
 from statistics import mean
 from shapely.geometry import Polygon
