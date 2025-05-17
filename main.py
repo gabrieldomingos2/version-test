@@ -634,7 +634,7 @@ def exportar_kmz():
 
                 delta = 0.0036
                 overlay = kml.newgroundoverlay(name=f"Repetidora em {lat:.4f},{lon:.4f}")
-                overlay.icon.href = nome_arquivo
+                overlay.icon.href = os.path.basename(nome_arquivo)
                 overlay.latlonbox.north = lat + delta
                 overlay.latlonbox.south = lat - delta
                 overlay.latlonbox.east = lon + delta
