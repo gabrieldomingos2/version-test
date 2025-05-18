@@ -11,6 +11,7 @@ import json
 import httpx
 import xml.etree.ElementTree as ET
 import simplekml
+import random
 
 from PIL import Image
 from statistics import mean
@@ -576,6 +577,7 @@ async def perfil_elevacao(req: dict):
 
     return {"bloqueio": bloqueio, "elevacao": elevs}
 
+
 @app.post("/sugerir_repetidora_entre_pivos")
 async def sugerir_repetidora_entre_pivos(data: dict):
     p1 = data.get("pivo1")
@@ -609,81 +611,75 @@ async def sugerir_repetidora_entre_pivos(data: dict):
         except Exception as e:
             return {"erro": f"Erro ao consultar elevação: {str(e)}"}
 
-    # MODO AUTOMÁTICO - TODOS FORA DA COBERTURA
+    # MODO AUTOMÁTICO
     pivos = data.get("pivos")
     overlays = data.get("overlays")
 
     if not pivos or not overlays:
         return {"erro": "Dados insuficientes: forneça pivos e overlays se não usar pivo1/pivo2"}
 
-    # Função para checar se ponto está coberto
-        # Usa o campo "fora" já calculado anteriormente
     pivos_fora = [p for p in pivos if p.get("fora", False)]
     print(f"🧪 Pivôs fora da cobertura: {[p['nome'] for p in pivos_fora]}")
 
     if len(pivos_fora) < 2:
-        return {"erro": "É necessário ao menos 2 pivôs fora da cobertura"}
+        return {"erro": "Pivôs insuficientes para sugestão automática"}
 
-    # Testa todos os pares únicos entre pivôs fora
-    melhores = []
+    sugestoes = []
+    steps = 50
+    limite_pares = 10
 
-    for i in range(len(pivos_fora)):
-        for j in range(i + 1, len(pivos_fora)):
-            a = pivos_fora[i]
-            b = pivos_fora[j]
+    todos_pares = [(a, b) for i, a in enumerate(pivos_fora) for j, b in enumerate(pivos_fora) if i < j]
+    pares_amostrados = random.sample(todos_pares, min(len(todos_pares), limite_pares))
 
-            steps = 50
-            pontos = [
-                (
-                    a["lat"] + (b["lat"] - a["lat"]) * k / steps,
-                    a["lon"] + (b["lon"] - a["lon"]) * k / steps
-                )
-                for k in range(steps + 1)
-            ]
+    for a, b in pares_amostrados:
+        pontos = [
+            (
+                a["lat"] + (b["lat"] - a["lat"]) * k / steps,
+                a["lon"] + (b["lon"] - a["lon"]) * k / steps
+            )
+            for k in range(steps + 1)
+        ]
 
-            coords_param = "|".join([f"{lat},{lon}" for lat, lon in pontos])
-            url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
+        coords_param = "|".join([f"{lat},{lon}" for lat, lon in pontos])
+        url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
 
-            try:
-                async with httpx.AsyncClient() as client:
-                    resp = await client.get(url)
-                    resp.raise_for_status()
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
 
-                elevs = [r["elevation"] for r in resp.json()["results"]]
-                idx_max = max(range(len(elevs)), key=lambda k: elevs[k])
+            elevs = [r["elevation"] for r in resp.json()["results"]]
+            idx_max = max(range(len(elevs)), key=lambda i: elevs[i])
+            lat, lon, elev = pontos[idx_max][0], pontos[idx_max][1], elevs[idx_max]
 
-                lat, lon, elev = pontos[idx_max][0], pontos[idx_max][1], elevs[idx_max]
-                melhores.append({
-                    "lat": lat,
-                    "lon": lon,
-                    "elev": elev,
-                    "pivo1": a["nome"],
-                    "pivo2": b["nome"]
-                })
+            sugestoes.append({
+                "lat": lat,
+                "lon": lon,
+                "elev": elev,
+                "pivo1": a["nome"],
+                "pivo2": b["nome"]
+            })
 
-            except Exception as e:
-                continue
+        except Exception as e:
+            print(f"Erro entre {a['nome']} e {b['nome']}: {e}")
+            continue
 
-    # Ordena por maior elevação
-    melhores.sort(key=lambda x: -x["elev"])
+    return {"sugestoes": sugestoes[:3]}
 
-    return {"sugestoes": melhores[:3]}  # top 3 sugestões
-
-from shapely.geometry import Point, Polygon
 
 @app.post("/sugerir_repetidoras_automaticas")
 async def sugerir_repetidoras_automaticas(data: dict):
+    import random
     pivos = data.get("pivos", [])
-    circulos = data.get("ciclos", [])  # precisa estar vindo do frontend
+    circulos = data.get("ciclos", [])
 
-    # 🔍 Função para checar se ponto está fora dos círculos dos pivôs
     def esta_fora_dos_pivos(lat, lon):
         ponto = Point(lon, lat)
         for circulo in circulos:
             coords = circulo.get("coordenadas", [])
             if len(coords) < 3:
                 continue
-            poligono = Polygon([(c[1], c[0]) for c in coords])  # lon, lat
+            poligono = Polygon([(c[1], c[0]) for c in coords])
             if poligono.contains(ponto):
                 return False
         return True
@@ -696,53 +692,54 @@ async def sugerir_repetidoras_automaticas(data: dict):
 
     sugestoes = []
     steps = 50
+    limite_pares = 10
 
-    for i in range(len(pivos_fora)):
-        for j in range(i + 1, len(pivos_fora)):
-            p1 = pivos_fora[i]
-            p2 = pivos_fora[j]
+    todos_pares = [(a, b) for i, a in enumerate(pivos_fora) for j, b in enumerate(pivos_fora) if i < j]
+    pares_amostrados = random.sample(todos_pares, min(len(todos_pares), limite_pares))
 
-            pontos = [
-                (
-                    p1["lat"] + (p2["lat"] - p1["lat"]) * k / steps,
-                    p1["lon"] + (p2["lon"] - p1["lon"]) * k / steps
-                )
-                for k in range(steps + 1)
+    for p1, p2 in pares_amostrados:
+        pontos = [
+            (
+                p1["lat"] + (p2["lat"] - p1["lat"]) * k / steps,
+                p1["lon"] + (p2["lon"] - p1["lon"]) * k / steps
+            )
+            for k in range(steps + 1)
+        ]
+
+        coords_param = "|".join([f"{lat},{lon}" for lat, lon in pontos])
+        url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+
+            elevs = [r["elevation"] for r in resp.json()["results"]]
+            candidatos = [
+                (pontos[i][0], pontos[i][1], elevs[i])
+                for i in range(len(pontos))
+                if esta_fora_dos_pivos(pontos[i][0], pontos[i][1])
             ]
 
-            coords_param = "|".join([f"{lat},{lon}" for lat, lon in pontos])
-            url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
-
-            try:
-                async with httpx.AsyncClient() as client:
-                    resp = await client.get(url)
-                    resp.raise_for_status()
-
-                elevs = [r["elevation"] for r in resp.json()["results"]]
-                candidatos = [
-                    (pontos[i][0], pontos[i][1], elevs[i])
-                    for i in range(len(pontos))
-                    if esta_fora_dos_pivos(pontos[i][0], pontos[i][1])
-                ]
-
-                if not candidatos:
-                    continue
-
-                lat, lon, elev = max(candidatos, key=lambda x: x[2])  # pega o ponto mais alto fora dos círculos
-
-                sugestoes.append({
-                    "lat": lat,
-                    "lon": lon,
-                    "elev": elev,
-                    "pivo1": p1["nome"],
-                    "pivo2": p2["nome"]
-                })
-
-            except Exception as e:
-                print(f"Erro ao consultar elevação entre {p1['nome']} e {p2['nome']}: {e}")
+            if not candidatos:
                 continue
 
+            lat, lon, elev = max(candidatos, key=lambda x: x[2])
+
+            sugestoes.append({
+                "lat": lat,
+                "lon": lon,
+                "elev": elev,
+                "pivo1": p1["nome"],
+                "pivo2": p2["nome"]
+            })
+
+        except Exception as e:
+            print(f"Erro ao consultar elevação entre {p1['nome']} e {p2['nome']}: {e}")
+            continue
+
     return {"sugestoes": sugestoes[:3]}
+
 
 
 @app.get("/exportar_kmz")
