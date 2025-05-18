@@ -17,6 +17,7 @@ from PIL import Image
 from statistics import mean
 from shapely.geometry import Polygon
 from datetime import datetime
+from shapely.geometry import Point
 
 
 app = FastAPI()
