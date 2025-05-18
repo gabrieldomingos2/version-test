@@ -1116,7 +1116,7 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
     }).addTo(map);
     visadaLayerGroup.addLayer(linha);
 
-    // Após 2 segundos, troca a classe para uma linha estável
+    // Após 2 segundos, troca a classe para uma linha estável.
     setTimeout(() => {
     if (linha._path) {
     linha._path.classList.remove('linha-futurista');

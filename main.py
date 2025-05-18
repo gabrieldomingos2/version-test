@@ -663,7 +663,7 @@ def exportar_kmz():
                 repetidoras_adicionadas.append((caminho, nome_limpo))
                 repetidoras_adicionadas.append((json_path, nome_limpo.replace(".png", ".json")))
 
-        # Exporta o KML e empacota tudo como KMZ
+        # Exporta o KML e empacota tudo como KMZ.
         caminho_kml = "arquivos/estudo.kml"
         kml.save(caminho_kml)
 
