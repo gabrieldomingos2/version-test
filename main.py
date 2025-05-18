@@ -794,7 +794,6 @@ async def sugerir_repetidoras_automaticas(data: dict):
     if not pivos or not overlays:
         return {"erro": "Dados insuficientes para sugestão automática"}
 
-    # Função para checar se o ponto está dentro de algum overlay
     def esta_coberto(lat, lon):
         for o in overlays:
             s, w, n, e = o["bounds"]
@@ -844,9 +843,9 @@ async def sugerir_repetidoras_automaticas(data: dict):
                 })
 
             except Exception as e:
-                print(f"Erro ao buscar elevação entre {p1['nome']} e {p2['nome']}: {e}")
+                print(f"Erro ao sugerir entre {p1['nome']} e {p2['nome']}: {e}")
                 continue
 
-    return {"sugestoes": sugestoes[:3]}  # Retorna top 3 sugestões
+    return {"sugestoes": sugestoes[:3]}
 
     
