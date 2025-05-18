@@ -111,6 +111,9 @@
   }
 }
 
+#painel-repetidoras {
+  top: auto !important;
+}
 
 #painel-dados,
 #painel-repetidoras {
@@ -173,10 +176,7 @@
   <!-- Button to toggle line of sight -->
   <button id="btn-visada" class="glass-button" title="Toggle line of sight">⛰️</button>
 
-  <!-- Button to trigger AI suggestion -->
- <button onclick="sugerirRepetidorasAutomaticamente()" class="glass-button" title="Sugestões automáticas">🤖</button>
-
- <!-- Button to toggle labels -->
+  <!-- Button to toggle labels -->
   <button id="toggle-legenda" class="glass-button" title="Toggle labels">🏷️</button>
 </div>
 
@@ -195,8 +195,8 @@
     <p id="total-bombas" class="mb-1 hidden">Casas de bomba: --</p>
   </div>
 
-  <!-- Painel de repetidoras Hidden/Delet -->
-    <div id="painel-repetidoras" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 z-[9998]">
+  <!-- Painel de repetidoras -->
+  <div id="painel-repetidoras" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 top-[calc(20px+320px)] z-[9998]">
     <h2 class="text-lg font-bold mb-2 text-green-300">📍 Repetidoras</h2>
     <div id="lista-repetidoras" class="space-y-2 text-sm"></div>
   </div>
@@ -579,7 +579,6 @@ data.pivos.forEach(pivo => {
 data.pivos.forEach(p => p.fora = true);
 atualizarPainel(data.pivos, antenaGlobal, antenaGlobal.altura_receiver, data.bombas);
 document.getElementById("painel-dados").classList.remove("hidden");
-reposicionarPaineisLaterais();
 
 
     // Ícone das casas de bomba
@@ -631,7 +630,6 @@ data.bombas.forEach(bomba => {
     document.getElementById("simular-btn").classList.remove("hidden");
     atualizarPainel(data.pivos, antenaGlobal, antenaGlobal.altura_receiver || 3, data.bombas);
     document.getElementById("painel-dados").classList.remove("hidden");
-    reposicionarPaineisLaterais();
   });
 </script>
 <script>
@@ -990,14 +988,11 @@ data.bombas.forEach(bomba => {
 });
 
   // 🔁 Reavalia pivôs com base nas imagens visíveis
-    async function reavaliarPivosViaAPI() {
-    const pivos = Object.entries(pivotsMap)
-   .filter(([_, marcador]) => marcador.options.fillColor === 'red')
-   .map(([nome, marcador]) => {
-    const { lat, lng } = marcador.getLatLng();
-    return { nome, lat, lon: lng };
-   });
-
+  async function reavaliarPivosViaAPI() {
+    const pivos = Object.entries(pivotsMap).map(([nome, marcador]) => {
+      const { lat, lng } = marcador.getLatLng();
+      return { nome, lat, lon: lng };
+    });
 
     const overlays = [];
 
@@ -1093,16 +1088,8 @@ function togglePainel(id) {
 
 // 🔄 MOVE ESTES DOIS PARA AQUI ⬇️
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("toggle-repetidoras").addEventListener("click", () => {
-  togglePainel("painel-repetidoras");
-  reposicionarPaineisLaterais();
-});
-
-document.getElementById("toggle-painel").addEventListener("click", () => {
-  togglePainel("painel-dados");
-  reposicionarPaineisLaterais();
-});
-
+  document.getElementById("toggle-repetidoras").addEventListener("click", () => togglePainel("painel-repetidoras"));
+  document.getElementById("toggle-painel").addEventListener("click", () => togglePainel("painel-dados"));
  });
 
 
@@ -1110,10 +1097,12 @@ let linhasDiagnostico = [];
 let marcadoresBloqueio = [];
 
 document.getElementById("btn-diagnostico").addEventListener("click", async () => {
-  if (!antenaGlobal?.overlay || Object.keys(pivotsMap).length === 0) {
+if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
     mostrarMensagem("⚠️ Rode o estudo de sinal primeiro!", "erro");
     return;
   }
+  if (!antenaGlobal || Object.keys(pivotsMap).length === 0) return;
+
 
   // Limpa diagnósticos anteriores
   linhasDiagnostico.forEach(l => map.removeLayer(l));
@@ -1122,34 +1111,36 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
   marcadoresBloqueio = [];
 
   for (const [nome, marcador] of Object.entries(pivotsMap)) {
-    // ⚠️ Só diagnosticar pivôs fora da cobertura
-    if (marcador.options.fillColor !== 'red') continue;
-
+  // ⚠️ Só diagnosticar pivôs com marcador vermelho
+  if (marcador.options.fillColor !== 'red') continue;
     const latlonAntena = [antenaGlobal.lat, antenaGlobal.lon];
     const latlonPivo = [marcador.getLatLng().lat, marcador.getLatLng().lng];
 
     // 🔷 Desenha linha azul entre antena e pivô
     const linha = L.polyline([latlonAntena, latlonPivo], {
-      className: 'linha-futurista'
+    className: 'linha-futurista'
     }).addTo(map);
     visadaLayerGroup.addLayer(linha);
-    linhasDiagnostico.push(linha);
 
-    // Após 2s, transforma em linha estática azul
+    // Após 2 segundos, troca a classe para uma linha estável.
     setTimeout(() => {
-      if (linha._path) {
-        linha._path.classList.remove('linha-futurista');
-        linha._path.style.stroke = '#00ffff';
-        linha._path.style.strokeWidth = '2';
-        linha._path.style.strokeDasharray = 'none';
-      }
+    if (linha._path) {
+    linha._path.classList.remove('linha-futurista');
+    linha._path.style.stroke = '#00ffff';
+    linha._path.style.strokeWidth = '2';
+    linha._path.style.strokeDasharray = 'none';
+    }
     }, 2000);
 
     const payload = {
-      pontos: [latlonAntena, latlonPivo],
-      altura_antena: antenaGlobal.altura ?? 15,
-      altura_receiver: antenaGlobal.altura_receiver ?? 3
+    pontos: [
+    [antenaGlobal.lat, antenaGlobal.lon],
+    [marcador.getLatLng().lat, marcador.getLatLng().lng]
+    ],
+    altura_antena: antenaGlobal.altura ?? 15,
+    altura_receiver: antenaGlobal.altura_receiver ?? 3
     };
+
 
     try {
       const res = await fetch("https://irricontrol-test.onrender.com/perfil_elevacao", {
@@ -1160,7 +1151,7 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
 
       const data = await res.json();
       if (data.bloqueio) {
-        const { lat, lon } = data.bloqueio;
+        const ponto = data.bloqueio;
 
         const bloqueioIcon = L.divIcon({
           className: 'label-pivo',
@@ -1169,16 +1160,19 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
           iconAnchor: [30, 10]
         });
 
-        const marker = L.marker([lat, lon], { icon: bloqueioIcon })
-          .addTo(map)
-          .bindPopup(`
-            <div class="popup-glass text-center leading-snug">
-              ⛔ Elevação acima da linha de visada<br>
-              entre a antena e <strong>${nome}</strong>
-            </div>
-          `);
+        const marker = L.marker([ponto.lat, ponto.lon], { icon: bloqueioIcon })
+  .addTo(map)
+  .bindPopup(`
+    <div class="popup-glass text-center leading-snug">
+      ⛔ Elevação acima da linha de visada<br>
+      entre a antena e <strong>${nome}</strong>
+    </div>
+  `);
 
-        visadaLayerGroup.addLayer(marker);
+  visadaLayerGroup.addLayer(marker);
+
+
+        
         marcadoresBloqueio.push(marker);
       }
     } catch (error) {
@@ -1187,7 +1181,7 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
   }
 
   mostrarMensagem("🔍 Diagnóstico de visada concluído.");
-});
+  });
 
 
   function baixarKMZ() {
@@ -1199,172 +1193,6 @@ document.getElementById("btn-diagnostico").addEventListener("click", async () =>
   document.body.removeChild(link);
 }
 
-  async function sugerirRepetidoraEntre(pivoNome1, pivoNome2) {
-    const p1 = pivotsMap[pivoNome1]?.getLatLng();
-    const p2 = pivotsMap[pivoNome2]?.getLatLng();
-
-    if (!p1 || !p2) {
-      mostrarMensagem("❌ Pivôs inválidos para sugestão", "erro");
-      return;
-    }
-
-    const payload = {
-      pivo1: { lat: p1.lat, lon: p1.lng },
-      pivo2: { lat: p2.lat, lon: p2.lng }
-    };
-
-    try {
-      const res = await fetch("https://irricontrol-test.onrender.com/sugerir_repetidoras_automaticas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json();
-
-      if (data.sugestao) {
-        const { lat, lon, elev } = data.sugestao;
-
-        const marcador = L.marker([lat, lon], {
-          icon: L.divIcon({
-            className: "label-pivo",
-            html: `🧠 Sugestão<br><small>${elev.toFixed(1)}m</small>`,
-            iconSize: [80, 30],
-            iconAnchor: [40, 40]
-          })
-        }).addTo(map);
-
-        marcador.bindPopup(`
-          <div class="popup-balao">
-            📡 Sugerido entre <b>${pivoNome1}</b> e <b>${pivoNome2}</b><br>
-            Altura: ${elev.toFixed(1)} m<br>
-            Lat: ${lat.toFixed(5)}<br>
-            Lon: ${lon.toFixed(5)}
-          </div>
-        `).openPopup();
-      }
-    } catch (e) {
-      mostrarMensagem("⚠️ Erro ao sugerir repetidora", "erro");
-      console.error(e);
-    }
-  }
-
-  document.getElementById("btn-ia-sugere").addEventListener("click", async () => {
-  const nomesPivos = Object.keys(pivotsMap);
-  if (nomesPivos.length < 2) {
-    mostrarMensagem("❌ Você precisa de pelo menos dois pivôs no mapa.", "erro");
-    return;
-  }
-
-  const p1 = prompt("Digite o nome do primeiro pivô:");
-  const p2 = prompt("Digite o nome do segundo pivô:");
-
-  if (!p1 || !p2) {
-    mostrarMensagem("⚠️ Nomes inválidos.", "erro");
-    return;
-  }
-
-  if (!pivotsMap[p1] || !pivotsMap[p2]) {
-    mostrarMensagem("⚠️ Um dos pivôs não foi encontrado no mapa.", "erro");
-    return;
-  }
-
-  await sugerirRepetidoraEntre(p1, p2);
-});
-
-async function sugerirRepetidorasAutomaticamente() {
-  await reavaliarPivosViaAPI(); // Garante atualização da cor com base no backend
-
-  // Aguarda a atualização dos estilos (delay para o mapa refletir)
-  await new Promise(resolve => setTimeout(resolve, 300)); 
-
-  // Agora filtra com base no estilo atualizado
-  const pivos = Object.entries(pivotsMap)
-    .map(([nome, marcador]) => {
-      const cor = marcador.options.fillColor;
-      return {
-        nome,
-        lat: marcador.getLatLng().lat,
-        lon: marcador.getLatLng().lng,
-        fora: cor === 'red' || cor === '#ff0000'
-      };
-    })
-    .filter(p => p.fora);
-
-  if (pivos.length < 2) {
-    mostrarMensagem("❌ Pelo menos dois pivôs fora da cobertura são necessários.", "erro");
-    return;
-  }
-
-  const overlays = [];
-
-  if (antenaGlobal?.overlay && map.hasLayer(antenaGlobal.overlay)) {
-    const b = antenaGlobal.overlay.getBounds().toBBoxString().split(",").map(Number);
-    overlays.push({
-      imagem: "https://irricontrol-test.onrender.com/static/imagens/sinal.png",
-      bounds: [b[1], b[0], b[3], b[2]]
-    });
-  }
-
-  repetidoras.forEach(rep => {
-    if (rep.overlay && map.hasLayer(rep.overlay)) {
-      const b = rep.overlay.getBounds().toBBoxString().split(",").map(Number);
-      overlays.push({
-        imagem: `https://irricontrol-test.onrender.com/static/imagens/repetidora_${rep.marker.getLatLng().lat.toString().replace(".", "_")}_${rep.marker.getLatLng().lng.toString().replace(".", "_")}.png`,
-        bounds: [b[1], b[0], b[3], b[2]]
-      });
-    }
-  });
-
-  const ciclos = circulosPivos.map(circulo => {
-    const latlngs = circulo.getLatLngs()[0]; // pega os pontos do polígono
-    return {
-      coordenadas: latlngs.map(p => [p.lat, p.lng])
-    };
-  });
-
-  try {
-    const res = await fetch("https://irricontrol-test.onrender.com/sugerir_repetidoras_automaticas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pivos, overlays, ciclos }) // ✅ agora envia os círculos também
-    });
-
-    const data = await res.json();
-
-    if (data.sugestoes) {
-      data.sugestoes.forEach(sugestao => {
-        const { lat, lon, elev, pivo1, pivo2 } = sugestao;
-
-        const marcador = L.marker([lat, lon], {
-          icon: L.divIcon({
-            className: "label-pivo",
-            html: `🧠 Sugerido<br><small>${elev.toFixed(1)}m</small>`,
-            iconSize: [80, 30],
-            iconAnchor: [40, 40]
-          })
-        }).addTo(map);
-
-        marcador.bindPopup(`
-          <div class="popup-balao">
-            📡 Repetidora entre <b>${pivo1}</b> e <b>${pivo2}</b><br>
-            Altitude: ${elev.toFixed(1)} m<br>
-            Lat: ${lat.toFixed(5)}<br>
-            Lon: ${lon.toFixed(5)}
-          </div>
-        `);
-      });
-
-      mostrarMensagem("🧠 Sugestões automáticas geradas!");
-    } else {
-      mostrarMensagem("⚠️ Nenhuma sugestão recebida.", "erro");
-    }
-
-  } catch (err) {
-    mostrarMensagem("❌ Erro ao sugerir repetidoras.", "erro");
-    console.error(err);
-  }
-}
 
 
 </script>
