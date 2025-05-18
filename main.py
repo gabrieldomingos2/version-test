@@ -690,7 +690,7 @@ async def sugerir_repetidoras_automaticas(data: dict):
                 return True
         return False
 
-    pivos_fora = [p for p in pivos if not esta_coberto(p["lat"], p["lon"])]
+    pivos_fora = [p for p in pivos if p.get("fora", False)]
 
     if len(pivos_fora) < 2:
         return {"erro": "É necessário ao menos 2 pivôs fora da cobertura"}
