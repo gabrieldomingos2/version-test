@@ -617,15 +617,8 @@ async def sugerir_repetidora_entre_pivos(data: dict):
         return {"erro": "Dados insuficientes: forneça pivos e overlays se não usar pivo1/pivo2"}
 
     # Função para checar se ponto está coberto
-    def esta_coberto(lat, lon):
-        for overlay in overlays:
-            s, w, n, e = overlay["bounds"]
-            if s <= lat <= n and w <= lon <= e:
-                return True
-        return False
-
-    # Filtra os pivôs fora da cobertura
-    pivos_fora = [p for p in pivos if not esta_coberto(p["lat"], p["lon"])]
+        # Usa o campo "fora" já calculado anteriormente
+    pivos_fora = [p for p in pivos if p.get("fora", False)]
 
     if len(pivos_fora) < 2:
         return {"erro": "É necessário ao menos 2 pivôs fora da cobertura"}
