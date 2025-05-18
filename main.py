@@ -675,6 +675,69 @@ async def sugerir_repetidora_entre_pivos(data: dict):
 
     return {"sugestoes": melhores[:3]}  # top 3 sugestões
 
+@app.post("/sugerir_repetidoras_automaticas")
+async def sugerir_repetidoras_automaticas(data: dict):
+    pivos = data.get("pivos", [])
+    overlays = data.get("overlays", [])
+
+    if not pivos or not overlays:
+        return {"erro": "Dados insuficientes para sugestão automática"}
+
+    def esta_coberto(lat, lon):
+        for o in overlays:
+            s, w, n, e = o["bounds"]
+            if s <= lat <= n and w <= lon <= e:
+                return True
+        return False
+
+    pivos_fora = [p for p in pivos if not esta_coberto(p["lat"], p["lon"])]
+
+    if len(pivos_fora) < 2:
+        return {"erro": "É necessário ao menos 2 pivôs fora da cobertura"}
+
+    sugestoes = []
+    steps = 50
+
+    for i in range(len(pivos_fora)):
+        for j in range(i + 1, len(pivos_fora)):
+            p1 = pivos_fora[i]
+            p2 = pivos_fora[j]
+
+            pontos = [
+                (
+                    p1["lat"] + (p2["lat"] - p1["lat"]) * k / steps,
+                    p1["lon"] + (p2["lon"] - p1["lon"]) * k / steps
+                )
+                for k in range(steps + 1)
+            ]
+
+            coords_param = "|".join([f"{lat},{lon}" for lat, lon in pontos])
+            url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
+
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(url)
+                    resp.raise_for_status()
+
+                elevs = [r["elevation"] for r in resp.json()["results"]]
+                idx_max = max(range(len(elevs)), key=lambda i: elevs[i])
+                lat, lon, elev = pontos[idx_max][0], pontos[idx_max][1], elevs[idx_max]
+
+                sugestoes.append({
+                    "lat": lat,
+                    "lon": lon,
+                    "elev": elev,
+                    "pivo1": p1["nome"],
+                    "pivo2": p2["nome"]
+                })
+
+            except Exception as e:
+                print(f"Erro ao sugerir entre {p1['nome']} e {p2['nome']}: {e}")
+                continue
+
+    return {"sugestoes": sugestoes[:3]}
+
+
 
 @app.get("/exportar_kmz")
 def exportar_kmz():
@@ -785,67 +848,4 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
-    
-    @app.post("/sugerir_repetidoras_automaticas")
-async def sugerir_repetidoras_automaticas(data: dict):
-    pivos = data.get("pivos", [])
-    overlays = data.get("overlays", [])
-
-    if not pivos or not overlays:
-        return {"erro": "Dados insuficientes para sugestão automática"}
-
-    def esta_coberto(lat, lon):
-        for o in overlays:
-            s, w, n, e = o["bounds"]
-            if s <= lat <= n and w <= lon <= e:
-                return True
-        return False
-
-    pivos_fora = [p for p in pivos if not esta_coberto(p["lat"], p["lon"])]
-
-    if len(pivos_fora) < 2:
-        return {"erro": "É necessário ao menos 2 pivôs fora da cobertura"}
-
-    sugestoes = []
-    steps = 50
-
-    for i in range(len(pivos_fora)):
-        for j in range(i + 1, len(pivos_fora)):
-            p1 = pivos_fora[i]
-            p2 = pivos_fora[j]
-
-            pontos = [
-                (
-                    p1["lat"] + (p2["lat"] - p1["lat"]) * k / steps,
-                    p1["lon"] + (p2["lon"] - p1["lon"]) * k / steps
-                )
-                for k in range(steps + 1)
-            ]
-
-            coords_param = "|".join([f"{lat},{lon}" for lat, lon in pontos])
-            url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
-
-            try:
-                async with httpx.AsyncClient() as client:
-                    resp = await client.get(url)
-                    resp.raise_for_status()
-
-                elevs = [r["elevation"] for r in resp.json()["results"]]
-                idx_max = max(range(len(elevs)), key=lambda i: elevs[i])
-                lat, lon, elev = pontos[idx_max][0], pontos[idx_max][1], elevs[idx_max]
-
-                sugestoes.append({
-                    "lat": lat,
-                    "lon": lon,
-                    "elev": elev,
-                    "pivo1": p1["nome"],
-                    "pivo2": p2["nome"]
-                })
-
-            except Exception as e:
-                print(f"Erro ao sugerir entre {p1['nome']} e {p2['nome']}: {e}")
-                continue
-
-    return {"sugestoes": sugestoes[:3]}
-
     

@@ -990,11 +990,14 @@ data.bombas.forEach(bomba => {
 });
 
   // 🔁 Reavalia pivôs com base nas imagens visíveis
-  async function reavaliarPivosViaAPI() {
-    const pivos = Object.entries(pivotsMap).map(([nome, marcador]) => {
-      const { lat, lng } = marcador.getLatLng();
-      return { nome, lat, lon: lng };
-    });
+    async function reavaliarPivosViaAPI() {
+    const pivos = Object.entries(pivotsMap)
+   .filter(([_, marcador]) => marcador.options.fillColor === 'red')
+   .map(([nome, marcador]) => {
+    const { lat, lng } = marcador.getLatLng();
+    return { nome, lat, lon: lng };
+   });
+
 
     const overlays = [];
 
@@ -1277,12 +1280,19 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
 });
 
 async function sugerirRepetidorasAutomaticamente() {
-  const pivos = Object.entries(pivotsMap).map(([nome, marcador]) => {
-      // Remove marcadores anteriores de sugestões
-    document.querySelectorAll(".marker-sugestao").forEach(m => map.removeLayer(m));
-    const { lat, lng } = marcador.getLatLng();
-    return { nome, lat, lon: lng };
-  });
+  await reavaliarPivosViaAPI(); // Garante atualização da cor
+
+  const pivos = Object.entries(pivotsMap)
+    .filter(([_, marcador]) => marcador.options.fillColor === 'red')
+    .map(([nome, marcador]) => {
+      const { lat, lng } = marcador.getLatLng();
+      return { nome, lat, lon: lng };
+    });
+
+  if (pivos.length < 2) {
+    mostrarMensagem("❌ Pelo menos dois pivôs fora da cobertura são necessários.", "erro");
+    return;
+  }
 
   const overlays = [];
 
@@ -1319,7 +1329,7 @@ async function sugerirRepetidorasAutomaticamente() {
 
         const marcador = L.marker([lat, lon], {
           icon: L.divIcon({
-            className: "label-pivo marker-sugestao",
+            className: "label-pivo",
             html: `🧠 Sugerido<br><small>${elev.toFixed(1)}m</small>`,
             iconSize: [80, 30],
             iconAnchor: [40, 40]
