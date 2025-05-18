@@ -593,26 +593,27 @@ def exportar_kmz():
         kml = simplekml.Kml()
 
         # Torre principal
-        torre = kml.newpoint(name=f"📡 {antena['nome']}", coords=[(antena["lon"], antena["lat"])])
+        torre = kml.newpoint(name=f"{antena['nome']}", coords=[(antena["lon"], antena["lat"])])
         torre.description = f"Torre principal\nAltura: {antena['altura']}m"
         torre.style.iconstyle.icon.href = "cloudrf.png"
         torre.style.iconstyle.scale = 1.5
 
         # Pivôs
         for p in pivos:
-            cor = "ff0000ff" if p.get("fora") else "ff00ff00"
             ponto = kml.newpoint(name=p["nome"], coords=[(p["lon"], p["lat"])])
             ponto.description = "❌ Fora da cobertura" if p.get("fora") else "✅ Coberto"
-            ponto.style.iconstyle.color = cor
-            ponto.style.iconstyle.scale = 1.2
+            ponto.style.iconstyle.color = "ffffffff"
+            ponto.style.iconstyle.scale = 1.4
+
 
         # Círculos dos pivôs
         for ciclo in ciclos:
-            poligono = kml.newpolygon(name=ciclo["nome"])
-            poligono.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
-            poligono.style.polystyle.color = "33ff0000"
-            poligono.style.linestyle.color = "ff0000ff"
-            poligono.style.linestyle.width = 2
+           poligono = kml.newpolygon(name=ciclo["nome"])
+           poligono.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
+           poligono.style.polystyle.color = "00000000" 
+           poligono.style.linestyle.color = "ff0000ff" 
+           poligono.style.linestyle.width = 4.0       
+
 
         # Imagem da antena principal
         ground = kml.newgroundoverlay(name="Cobertura Principal")
@@ -655,7 +656,7 @@ def exportar_kmz():
                 lat_centro = (bounds_rep[0] + bounds_rep[2]) / 2
                 lon_centro = (bounds_rep[1] + bounds_rep[3]) / 2
 
-                ponto = kml.newpoint(name="📡 Repetidora", coords=[(lon_centro, lat_centro)])
+                ponto = kml.newpoint(name="Repetidora", coords=[(lon_centro, lat_centro)])
                 ponto.style.iconstyle.icon.href = "cloudrf.png"
                 ponto.style.iconstyle.scale = 1.2
                 ponto.description = f"Repetidora centralizada em {lat_centro:.4f}, {lon_centro:.4f}"
