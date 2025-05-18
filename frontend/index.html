@@ -111,9 +111,6 @@
   }
 }
 
-#painel-repetidoras {
-  top: auto !important;
-}
 
 #painel-dados,
 #painel-repetidoras {
@@ -177,8 +174,8 @@
   <button id="btn-visada" class="glass-button" title="Toggle line of sight">⛰️</button>
 
   <!-- Button to trigger AI suggestion -->
- <button id="btn-ia-sugere" class="glass-button" title="Sugerir repetidora entre dois pivôs">🧠</button>
-
+ <button onclick="sugerirRepetidorasAutomaticamente()" class="glass-button" title="Sugestões automáticas">🤖</button>
+ 
  <!-- Button to toggle labels -->
   <button id="toggle-legenda" class="glass-button" title="Toggle labels">🏷️</button>
 </div>
@@ -198,8 +195,8 @@
     <p id="total-bombas" class="mb-1 hidden">Casas de bomba: --</p>
   </div>
 
-  <!-- Painel de repetidoras -->
-  <div id="painel-repetidoras" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 top-[calc(20px+320px)] z-[9998]">
+  <!-- Painel de repetidoras Hidden/Delet -->
+    <div id="painel-repetidoras" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 z-[9998]">
     <h2 class="text-lg font-bold mb-2 text-green-300">📍 Repetidoras</h2>
     <div id="lista-repetidoras" class="space-y-2 text-sm"></div>
   </div>
@@ -582,6 +579,7 @@ data.pivos.forEach(pivo => {
 data.pivos.forEach(p => p.fora = true);
 atualizarPainel(data.pivos, antenaGlobal, antenaGlobal.altura_receiver, data.bombas);
 document.getElementById("painel-dados").classList.remove("hidden");
+reposicionarPaineisLaterais();
 
 
     // Ícone das casas de bomba
@@ -633,6 +631,7 @@ data.bombas.forEach(bomba => {
     document.getElementById("simular-btn").classList.remove("hidden");
     atualizarPainel(data.pivos, antenaGlobal, antenaGlobal.altura_receiver || 3, data.bombas);
     document.getElementById("painel-dados").classList.remove("hidden");
+    reposicionarPaineisLaterais();
   });
 </script>
 <script>
@@ -1091,8 +1090,16 @@ function togglePainel(id) {
 
 // 🔄 MOVE ESTES DOIS PARA AQUI ⬇️
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("toggle-repetidoras").addEventListener("click", () => togglePainel("painel-repetidoras"));
-  document.getElementById("toggle-painel").addEventListener("click", () => togglePainel("painel-dados"));
+  document.getElementById("toggle-repetidoras").addEventListener("click", () => {
+  togglePainel("painel-repetidoras");
+  reposicionarPaineisLaterais();
+});
+
+document.getElementById("toggle-painel").addEventListener("click", () => {
+  togglePainel("painel-dados");
+  reposicionarPaineisLaterais();
+});
+
  });
 
 
@@ -1268,6 +1275,78 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
 
   await sugerirRepetidoraEntre(p1, p2);
 });
+
+async function sugerirRepetidorasAutomaticamente() {
+  const pivos = Object.entries(pivotsMap).map(([nome, marcador]) => {
+      // Remove marcadores anteriores de sugestões
+    document.querySelectorAll(".marker-sugestao").forEach(m => map.removeLayer(m));
+    const { lat, lng } = marcador.getLatLng();
+    return { nome, lat, lon: lng };
+  });
+
+  const overlays = [];
+
+  if (antenaGlobal?.overlay && map.hasLayer(antenaGlobal.overlay)) {
+    const b = antenaGlobal.overlay.getBounds().toBBoxString().split(",").map(Number);
+    overlays.push({
+      imagem: "https://irricontrol-test.onrender.com/static/imagens/sinal.png",
+      bounds: [b[1], b[0], b[3], b[2]]
+    });
+  }
+
+  repetidoras.forEach(rep => {
+    if (rep.overlay && map.hasLayer(rep.overlay)) {
+      const b = rep.overlay.getBounds().toBBoxString().split(",").map(Number);
+      overlays.push({
+        imagem: `https://irricontrol-test.onrender.com/static/imagens/repetidora_${rep.marker.getLatLng().lat.toString().replace(".", "_")}_${rep.marker.getLatLng().lng.toString().replace(".", "_")}.png`,
+        bounds: [b[1], b[0], b[3], b[2]]
+      });
+    }
+  });
+
+  try {
+    const res = await fetch("https://irricontrol-test.onrender.com/sugerir_repetidora_entre_pivos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pivos, overlays })
+    });
+
+    const data = await res.json();
+
+    if (data.sugestoes) {
+      data.sugestoes.forEach(sugestao => {
+        const { lat, lon, elev, pivo1, pivo2 } = sugestao;
+
+        const marcador = L.marker([lat, lon], {
+          icon: L.divIcon({
+            className: "label-pivo marker-sugestao",
+            html: `🧠 Sugerido<br><small>${elev.toFixed(1)}m</small>`,
+            iconSize: [80, 30],
+            iconAnchor: [40, 40]
+          })
+        }).addTo(map);
+
+        marcador.bindPopup(`
+          <div class="popup-balao">
+            📡 Repetidora entre <b>${pivo1}</b> e <b>${pivo2}</b><br>
+            Altitude: ${elev.toFixed(1)} m<br>
+            Lat: ${lat.toFixed(5)}<br>
+            Lon: ${lon.toFixed(5)}
+          </div>
+        `);
+      });
+
+      mostrarMensagem("🧠 Sugestões automáticas geradas!");
+    } else {
+      mostrarMensagem("⚠️ Nenhuma sugestão recebida.", "erro");
+    }
+
+  } catch (err) {
+    mostrarMensagem("❌ Erro ao sugerir repetidoras.", "erro");
+    console.error(err);
+  }
+}
+
 
 </script>
 

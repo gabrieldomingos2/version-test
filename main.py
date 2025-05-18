@@ -581,35 +581,99 @@ async def sugerir_repetidora_entre_pivos(data: dict):
     p1 = data.get("pivo1")
     p2 = data.get("pivo2")
 
-    if not p1 or not p2:
-        return {"erro": "Dois pivôs precisam ser fornecidos"}
+    # MODO NORMAL ENTRE DOIS PIVÔS
+    if p1 and p2:
+        steps = 50
+        pontos = [
+            (
+                p1["lat"] + (p2["lat"] - p1["lat"]) * i / steps,
+                p1["lon"] + (p2["lon"] - p1["lon"]) * i / steps
+            )
+            for i in range(steps + 1)
+        ]
 
-    steps = 50
-    pontos = [
-        (
-            p1["lat"] + (p2["lat"] - p1["lat"]) * i / steps,
-            p1["lon"] + (p2["lon"] - p1["lon"]) * i / steps
-        )
-        for i in range(steps + 1)
-    ]
+        coords_param = "|".join([f"{lat},{lon}" for lat, lon in pontos])
+        url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
 
-    coords_param = "|".join([f"{lat},{lon}" for lat, lon in pontos])
-    url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
 
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
+            elevs = [r["elevation"] for r in resp.json()["results"]]
+            idx_max = max(range(len(elevs)), key=lambda i: elevs[i])
+            lat, lon, elev = pontos[idx_max][0], pontos[idx_max][1], elevs[idx_max]
 
-        elevs = [r["elevation"] for r in resp.json()["results"]]
-        idx_max = max(range(len(elevs)), key=lambda i: elevs[i])
-        lat, lon, elev = pontos[idx_max][0], pontos[idx_max][1], elevs[idx_max]
+            return {"sugestao": {"lat": lat, "lon": lon, "elev": elev}}
 
-        return {"sugestao": {"lat": lat, "lon": lon, "elev": elev}}
+        except Exception as e:
+            return {"erro": f"Erro ao consultar elevação: {str(e)}"}
 
-    except Exception as e:
-        return {"erro": f"Erro ao consultar elevação: {str(e)}"}
+    # MODO AUTOMÁTICO - TODOS FORA DA COBERTURA
+    pivos = data.get("pivos")
+    overlays = data.get("overlays")
 
+    if not pivos or not overlays:
+        return {"erro": "Dados insuficientes: forneça pivos e overlays se não usar pivo1/pivo2"}
+
+    # Função para checar se ponto está coberto
+    def esta_coberto(lat, lon):
+        for overlay in overlays:
+            s, w, n, e = overlay["bounds"]
+            if s <= lat <= n and w <= lon <= e:
+                return True
+        return False
+
+    # Filtra os pivôs fora da cobertura
+    pivos_fora = [p for p in pivos if not esta_coberto(p["lat"], p["lon"])]
+
+    if len(pivos_fora) < 2:
+        return {"erro": "É necessário ao menos 2 pivôs fora da cobertura"}
+
+    # Testa todos os pares únicos entre pivôs fora
+    melhores = []
+
+    for i in range(len(pivos_fora)):
+        for j in range(i + 1, len(pivos_fora)):
+            a = pivos_fora[i]
+            b = pivos_fora[j]
+
+            steps = 50
+            pontos = [
+                (
+                    a["lat"] + (b["lat"] - a["lat"]) * k / steps,
+                    a["lon"] + (b["lon"] - a["lon"]) * k / steps
+                )
+                for k in range(steps + 1)
+            ]
+
+            coords_param = "|".join([f"{lat},{lon}" for lat, lon in pontos])
+            url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
+
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(url)
+                    resp.raise_for_status()
+
+                elevs = [r["elevation"] for r in resp.json()["results"]]
+                idx_max = max(range(len(elevs)), key=lambda k: elevs[k])
+
+                lat, lon, elev = pontos[idx_max][0], pontos[idx_max][1], elevs[idx_max]
+                melhores.append({
+                    "lat": lat,
+                    "lon": lon,
+                    "elev": elev,
+                    "pivo1": a["nome"],
+                    "pivo2": b["nome"]
+                })
+
+            except Exception as e:
+                continue
+
+    # Ordena por maior elevação
+    melhores.sort(key=lambda x: -x["elev"])
+
+    return {"sugestoes": melhores[:3]}  # top 3 sugestões
 
 
 @app.get("/exportar_kmz")
