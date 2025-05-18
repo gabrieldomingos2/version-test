@@ -669,11 +669,25 @@ async def sugerir_repetidora_entre_pivos(data: dict):
 
     return {"sugestoes": melhores[:3]}  # top 3 sugestões
 
+from shapely.geometry import Point, Polygon
+
 @app.post("/sugerir_repetidoras_automaticas")
 async def sugerir_repetidoras_automaticas(data: dict):
     pivos = data.get("pivos", [])
+    circulos = data.get("ciclos", [])  # precisa estar vindo do frontend
 
-    # 🔧 overlays se tornou opcional e não é mais necessário
+    # 🔍 Função para checar se ponto está fora dos círculos dos pivôs
+    def esta_fora_dos_pivos(lat, lon):
+        ponto = Point(lon, lat)
+        for circulo in circulos:
+            coords = circulo.get("coordenadas", [])
+            if len(coords) < 3:
+                continue
+            poligono = Polygon([(c[1], c[0]) for c in coords])  # lon, lat
+            if poligono.contains(ponto):
+                return False
+        return True
+
     pivos_fora = [p for p in pivos if p.get("fora", False)]
     print(f"🧪 Pivôs fora da cobertura: {[p['nome'] for p in pivos_fora]}")
 
@@ -705,8 +719,16 @@ async def sugerir_repetidoras_automaticas(data: dict):
                     resp.raise_for_status()
 
                 elevs = [r["elevation"] for r in resp.json()["results"]]
-                idx_max = max(range(len(elevs)), key=lambda i: elevs[i])
-                lat, lon, elev = pontos[idx_max][0], pontos[idx_max][1], elevs[idx_max]
+                candidatos = [
+                    (pontos[i][0], pontos[i][1], elevs[i])
+                    for i in range(len(pontos))
+                    if esta_fora_dos_pivos(pontos[i][0], pontos[i][1])
+                ]
+
+                if not candidatos:
+                    continue
+
+                lat, lon, elev = max(candidatos, key=lambda x: x[2])  # pega o ponto mais alto fora dos círculos
 
                 sugestoes.append({
                     "lat": lat,

@@ -176,6 +176,9 @@
   <!-- Button to trigger AI suggestion -->
  <button onclick="sugerirRepetidorasAutomaticamente()" class="glass-button" title="Sugestões automáticas">🤖</button>
  
+ <!-- Button para IA sugerir entre dois pivôs -->
+ <button id="btn-ia-sugere" class="glass-button" title="Sugestão entre dois pivôs">🧠</button>
+
  <!-- Button to toggle labels -->
   <button id="toggle-legenda" class="glass-button" title="Toggle labels">🏷️</button>
 </div>
@@ -1110,12 +1113,10 @@ let linhasDiagnostico = [];
 let marcadoresBloqueio = [];
 
 document.getElementById("btn-diagnostico").addEventListener("click", async () => {
-if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
+  if (!antenaGlobal?.overlay || Object.keys(pivotsMap).length === 0) {
     mostrarMensagem("⚠️ Rode o estudo de sinal primeiro!", "erro");
     return;
   }
-  if (!antenaGlobal || Object.keys(pivotsMap).length === 0) return;
-
 
   // Limpa diagnósticos anteriores
   linhasDiagnostico.forEach(l => map.removeLayer(l));
@@ -1124,36 +1125,34 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
   marcadoresBloqueio = [];
 
   for (const [nome, marcador] of Object.entries(pivotsMap)) {
-  // ⚠️ Só diagnosticar pivôs com marcador vermelho
-  if (marcador.options.fillColor !== 'red') continue;
+    // ⚠️ Só diagnosticar pivôs fora da cobertura
+    if (marcador.options.fillColor !== 'red') continue;
+
     const latlonAntena = [antenaGlobal.lat, antenaGlobal.lon];
     const latlonPivo = [marcador.getLatLng().lat, marcador.getLatLng().lng];
 
     // 🔷 Desenha linha azul entre antena e pivô
     const linha = L.polyline([latlonAntena, latlonPivo], {
-    className: 'linha-futurista'
+      className: 'linha-futurista'
     }).addTo(map);
     visadaLayerGroup.addLayer(linha);
+    linhasDiagnostico.push(linha);
 
-    // Após 2 segundos, troca a classe para uma linha estável.
+    // Após 2s, transforma em linha estática azul
     setTimeout(() => {
-    if (linha._path) {
-    linha._path.classList.remove('linha-futurista');
-    linha._path.style.stroke = '#00ffff';
-    linha._path.style.strokeWidth = '2';
-    linha._path.style.strokeDasharray = 'none';
-    }
+      if (linha._path) {
+        linha._path.classList.remove('linha-futurista');
+        linha._path.style.stroke = '#00ffff';
+        linha._path.style.strokeWidth = '2';
+        linha._path.style.strokeDasharray = 'none';
+      }
     }, 2000);
 
     const payload = {
-    pontos: [
-    [antenaGlobal.lat, antenaGlobal.lon],
-    [marcador.getLatLng().lat, marcador.getLatLng().lng]
-    ],
-    altura_antena: antenaGlobal.altura ?? 15,
-    altura_receiver: antenaGlobal.altura_receiver ?? 3
+      pontos: [latlonAntena, latlonPivo],
+      altura_antena: antenaGlobal.altura ?? 15,
+      altura_receiver: antenaGlobal.altura_receiver ?? 3
     };
-
 
     try {
       const res = await fetch("https://irricontrol-test.onrender.com/perfil_elevacao", {
@@ -1164,7 +1163,7 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
 
       const data = await res.json();
       if (data.bloqueio) {
-        const ponto = data.bloqueio;
+        const { lat, lon } = data.bloqueio;
 
         const bloqueioIcon = L.divIcon({
           className: 'label-pivo',
@@ -1173,19 +1172,16 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
           iconAnchor: [30, 10]
         });
 
-        const marker = L.marker([ponto.lat, ponto.lon], { icon: bloqueioIcon })
-  .addTo(map)
-  .bindPopup(`
-    <div class="popup-glass text-center leading-snug">
-      ⛔ Elevação acima da linha de visada<br>
-      entre a antena e <strong>${nome}</strong>
-    </div>
-  `);
+        const marker = L.marker([lat, lon], { icon: bloqueioIcon })
+          .addTo(map)
+          .bindPopup(`
+            <div class="popup-glass text-center leading-snug">
+              ⛔ Elevação acima da linha de visada<br>
+              entre a antena e <strong>${nome}</strong>
+            </div>
+          `);
 
-  visadaLayerGroup.addLayer(marker);
-
-
-        
+        visadaLayerGroup.addLayer(marker);
         marcadoresBloqueio.push(marker);
       }
     } catch (error) {
@@ -1194,7 +1190,7 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
   }
 
   mostrarMensagem("🔍 Diagnóstico de visada concluído.");
-  });
+});
 
 
   function baixarKMZ() {
@@ -1221,7 +1217,7 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
     };
 
     try {
-      const res = await fetch("https://irricontrol-test.onrender.com/sugerir_repetidora_entre_pivos", {
+      const res = await fetch("https://irricontrol-test.onrender.com/sugerir_repetidoras_automaticas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -1280,14 +1276,23 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
 });
 
 async function sugerirRepetidorasAutomaticamente() {
-  await reavaliarPivosViaAPI(); // Garante atualização da cor
+  await reavaliarPivosViaAPI(); // Garante atualização da cor com base no backend
 
+  // Aguarda a atualização dos estilos (delay para o mapa refletir)
+  await new Promise(resolve => setTimeout(resolve, 300)); 
+
+  // Agora filtra com base no estilo atualizado
   const pivos = Object.entries(pivotsMap)
-    .filter(([_, marcador]) => marcador.options.fillColor === 'red')
     .map(([nome, marcador]) => {
-      const { lat, lng } = marcador.getLatLng();
-      return { nome, lat, lon: lng };
-    });
+      const cor = marcador.options.fillColor;
+      return {
+        nome,
+        lat: marcador.getLatLng().lat,
+        lon: marcador.getLatLng().lng,
+        fora: cor === 'red' || cor === '#ff0000'
+      };
+    })
+    .filter(p => p.fora);
 
   if (pivos.length < 2) {
     mostrarMensagem("❌ Pelo menos dois pivôs fora da cobertura são necessários.", "erro");
@@ -1314,11 +1319,18 @@ async function sugerirRepetidorasAutomaticamente() {
     }
   });
 
+  const ciclos = circulosPivos.map(circulo => {
+    const latlngs = circulo.getLatLngs()[0]; // pega os pontos do polígono
+    return {
+      coordenadas: latlngs.map(p => [p.lat, p.lng])
+    };
+  });
+
   try {
-    const res = await fetch("https://irricontrol-test.onrender.com/sugerir_repetidora_entre_pivos", {
+    const res = await fetch("https://irricontrol-test.onrender.com/sugerir_repetidoras_automaticas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pivos, overlays })
+      body: JSON.stringify({ pivos, overlays, ciclos }) // ✅ agora envia os círculos também
     });
 
     const data = await res.json();
@@ -1357,8 +1369,6 @@ async function sugerirRepetidorasAutomaticamente() {
   }
 }
 
-
-</script>
 
 </script>
 </body>
