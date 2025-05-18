@@ -672,19 +672,10 @@ async def sugerir_repetidora_entre_pivos(data: dict):
 @app.post("/sugerir_repetidoras_automaticas")
 async def sugerir_repetidoras_automaticas(data: dict):
     pivos = data.get("pivos", [])
-    overlays = data.get("overlays", [])
 
-    if not pivos or not overlays:
-        return {"erro": "Dados insuficientes para sugestão automática"}
-
-    def esta_coberto(lat, lon):
-        for o in overlays:
-            s, w, n, e = o["bounds"]
-            if s <= lat <= n and w <= lon <= e:
-                return True
-        return False
-
+    # 🔧 overlays se tornou opcional e não é mais necessário
     pivos_fora = [p for p in pivos if p.get("fora", False)]
+    print(f"🧪 Pivôs fora da cobertura: {[p['nome'] for p in pivos_fora]}")
 
     if len(pivos_fora) < 2:
         return {"erro": "É necessário ao menos 2 pivôs fora da cobertura"}
@@ -726,7 +717,7 @@ async def sugerir_repetidoras_automaticas(data: dict):
                 })
 
             except Exception as e:
-                print(f"Erro ao sugerir entre {p1['nome']} e {p2['nome']}: {e}")
+                print(f"Erro ao consultar elevação entre {p1['nome']} e {p2['nome']}: {e}")
                 continue
 
     return {"sugestoes": sugestoes[:3]}
