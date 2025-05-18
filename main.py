@@ -619,6 +619,7 @@ async def sugerir_repetidora_entre_pivos(data: dict):
     # Função para checar se ponto está coberto
         # Usa o campo "fora" já calculado anteriormente
     pivos_fora = [p for p in pivos if p.get("fora", False)]
+    print(f"🧪 Pivôs fora da cobertura: {[p['nome'] for p in pivos_fora]}")
 
     if len(pivos_fora) < 2:
         return {"erro": "É necessário ao menos 2 pivôs fora da cobertura"}
