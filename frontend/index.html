@@ -112,7 +112,7 @@
 }
 
 #painel-repetidoras {
-  margin-top: 12px;
+  top: auto !important;
 }
 
 #painel-dados,
@@ -176,7 +176,10 @@
   <!-- Button to toggle line of sight -->
   <button id="btn-visada" class="glass-button" title="Toggle line of sight">⛰️</button>
 
-  <!-- Button to toggle labels -->
+  <!-- Button to trigger AI suggestion -->
+ <button id="btn-ia-sugere" class="glass-button" title="Sugerir repetidora entre dois pivôs">🧠</button>
+
+ <!-- Button to toggle labels -->
   <button id="toggle-legenda" class="glass-button" title="Toggle labels">🏷️</button>
 </div>
 
@@ -805,34 +808,40 @@ data.bombas.forEach(bomba => {
 <script>
   // Clique no mapa → posiciona marcador e abre painel de repetidora
   map.on("click", function (e) {
-    // Evita clique durante carregamento
-    document.getElementById("simular-btn").disabled = true;
-    document.getElementById("simular-btn").disabled = false;
+  coordenadaClicada = e.latlng;
 
-    coordenadaClicada = e.latlng;
-
-    const iconePosicionamento = L.icon({
-      iconUrl: "https://irricontrol-test.onrender.com/icone-torre",
-      iconSize: [28, 28],
-      iconAnchor: [14, 28],
-      popupAnchor: [0, -30]
-    });
-
-    if (!marcadorPosicionamento) {
-      // Cria novo marcador de repetidora
-      marcadorPosicionamento = L.marker(coordenadaClicada, {
-        icon: iconePosicionamento,
-        interactive: false,
-        opacity: 0.6
-      }).addTo(map);
-    } else {
-      // Move o marcador existente
-      marcadorPosicionamento.setLatLng(coordenadaClicada);
-    }
-
-    // Mostra painel lateral de repetidora
-    document.getElementById("painel-repetidora").classList.remove("hidden");
+  const iconePosicionamento = L.icon({
+    iconUrl: "https://irricontrol-test.onrender.com/icone-torre",
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    popupAnchor: [0, -30]
   });
+
+  if (!marcadorPosicionamento) {
+    marcadorPosicionamento = L.marker(coordenadaClicada, {
+      icon: iconePosicionamento,
+      interactive: false,
+      opacity: 0.6
+    }).addTo(map);
+  } else {
+    marcadorPosicionamento.setLatLng(coordenadaClicada);
+  }
+
+  // 🧩 POSICIONA O PAINEL ABAIXO DO BOTÃO RESETAR
+  const btnResetar = document.getElementById("resetar-btn");
+  const painel = document.getElementById("painel-repetidora");
+
+  const pos = btnResetar.getBoundingClientRect();
+
+  painel.style.position = "absolute";
+  painel.style.left = `${pos.left}px`;
+  painel.style.top = `${pos.bottom + 8}px`; // 8px de margem
+  painel.style.zIndex = 9999;
+
+  painel.classList.remove("hidden");
+ });
+
+
 </script>
 
 <script>
@@ -1187,7 +1196,80 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
   document.body.removeChild(link);
 }
 
+  async function sugerirRepetidoraEntre(pivoNome1, pivoNome2) {
+    const p1 = pivotsMap[pivoNome1]?.getLatLng();
+    const p2 = pivotsMap[pivoNome2]?.getLatLng();
 
+    if (!p1 || !p2) {
+      mostrarMensagem("❌ Pivôs inválidos para sugestão", "erro");
+      return;
+    }
+
+    const payload = {
+      pivo1: { lat: p1.lat, lon: p1.lng },
+      pivo2: { lat: p2.lat, lon: p2.lng }
+    };
+
+    try {
+      const res = await fetch("https://irricontrol-test.onrender.com/sugerir_repetidora_entre_pivos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (data.sugestao) {
+        const { lat, lon, elev } = data.sugestao;
+
+        const marcador = L.marker([lat, lon], {
+          icon: L.divIcon({
+            className: "label-pivo",
+            html: `🧠 Sugestão<br><small>${elev.toFixed(1)}m</small>`,
+            iconSize: [80, 30],
+            iconAnchor: [40, 40]
+          })
+        }).addTo(map);
+
+        marcador.bindPopup(`
+          <div class="popup-balao">
+            📡 Sugerido entre <b>${pivoNome1}</b> e <b>${pivoNome2}</b><br>
+            Altura: ${elev.toFixed(1)} m<br>
+            Lat: ${lat.toFixed(5)}<br>
+            Lon: ${lon.toFixed(5)}
+          </div>
+        `).openPopup();
+      }
+    } catch (e) {
+      mostrarMensagem("⚠️ Erro ao sugerir repetidora", "erro");
+      console.error(e);
+    }
+  }
+
+  document.getElementById("btn-ia-sugere").addEventListener("click", async () => {
+  const nomesPivos = Object.keys(pivotsMap);
+  if (nomesPivos.length < 2) {
+    mostrarMensagem("❌ Você precisa de pelo menos dois pivôs no mapa.", "erro");
+    return;
+  }
+
+  const p1 = prompt("Digite o nome do primeiro pivô:");
+  const p2 = prompt("Digite o nome do segundo pivô:");
+
+  if (!p1 || !p2) {
+    mostrarMensagem("⚠️ Nomes inválidos.", "erro");
+    return;
+  }
+
+  if (!pivotsMap[p1] || !pivotsMap[p2]) {
+    mostrarMensagem("⚠️ Um dos pivôs não foi encontrado no mapa.", "erro");
+    return;
+  }
+
+  await sugerirRepetidoraEntre(p1, p2);
+});
+
+</script>
 
 </script>
 </body>

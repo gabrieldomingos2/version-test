@@ -576,6 +576,41 @@ async def perfil_elevacao(req: dict):
 
     return {"bloqueio": bloqueio, "elevacao": elevs}
 
+@app.post("/sugerir_repetidora_entre_pivos")
+async def sugerir_repetidora_entre_pivos(data: dict):
+    p1 = data.get("pivo1")
+    p2 = data.get("pivo2")
+
+    if not p1 or not p2:
+        return {"erro": "Dois pivôs precisam ser fornecidos"}
+
+    steps = 50
+    pontos = [
+        (
+            p1["lat"] + (p2["lat"] - p1["lat"]) * i / steps,
+            p1["lon"] + (p2["lon"] - p1["lon"]) * i / steps
+        )
+        for i in range(steps + 1)
+    ]
+
+    coords_param = "|".join([f"{lat},{lon}" for lat, lon in pontos])
+    url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+
+        elevs = [r["elevation"] for r in resp.json()["results"]]
+        idx_max = max(range(len(elevs)), key=lambda i: elevs[i])
+        lat, lon, elev = pontos[idx_max][0], pontos[idx_max][1], elevs[idx_max]
+
+        return {"sugestao": {"lat": lat, "lon": lon, "elev": elev}}
+
+    except Exception as e:
+        return {"erro": f"Erro ao consultar elevação: {str(e)}"}
+
+
 
 @app.get("/exportar_kmz")
 def exportar_kmz():
@@ -686,4 +721,6 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
+    
+    
     
