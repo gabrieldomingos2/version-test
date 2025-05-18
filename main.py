@@ -738,7 +738,6 @@ async def sugerir_repetidoras_automaticas(data: dict):
     return {"sugestoes": sugestoes[:3]}
 
 
-
 @app.get("/exportar_kmz")
 def exportar_kmz():
     try:
