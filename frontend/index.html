@@ -558,19 +558,6 @@ data.pivos.forEach(pivo => {
     fillOpacity: 0.6
   }).addTo(map).bindPopup(`<div class="popup-glass">✅ ${pivo.nome}</div>`);
 
-  // Torna o marcador "arrastável"
-  marker.dragging = new L.Handler.MarkerDrag(marker);
-  marker.dragging.enable();
-
-  // Atualiza posição ao soltar
-  marker.on('dragend', function (e) {
-  const novaPos = e.target.getLatLng();
-  pivotsMap[pivo.nome] = e.target;
-  e.target.setLatLng(novaPos);
-  // Atualiza o popup com a nova posição
-  e.target.setPopupContent(`<div class="popup-glass">🟡 ${pivo.nome}<br><small>${novaPos.lat.toFixed(6)}, ${novaPos.lng.toFixed(6)}</small></div>`);
-  });
-
   marcadoresPivos.push(marker);
   pivotsMap[pivo.nome] = marker;
 
@@ -902,13 +889,17 @@ data.bombas.forEach(bomba => {
     mostrarLoader(true);
 
     const payload = {
-  lat: coordenadaClicada.lat,
-  lon: coordenadaClicada.lng,
-  altura: alturaAntena,
-  altura_receiver: alturaReceiver,
-  pivos_atuais: getPivosAtualizados()
-  };
-
+      lat: coordenadaClicada.lat,
+      lon: coordenadaClicada.lng,
+      altura: alturaAntena,
+      altura_receiver: alturaReceiver,
+      pivos_atuais: Object.entries(pivotsMap).map(([nome, marcador]) => ({
+        nome,
+        lat: marcador.getLatLng().lat,
+        lon: marcador.getLatLng().lng,
+        fora: marcador.options.color.toLowerCase() === 'red' || marcador.options.color === '#ff0000'
+      }))
+    };
 
     const res = await fetch("https://irricontrol-test.onrender.com/simular_manual", {
       method: "POST",
@@ -1190,47 +1181,15 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
   });
 
 
-  async function baixarKMZ() {
-  const botaoExportar = document.querySelector('button[onclick="baixarKMZ()"]');
-  botaoExportar.disabled = true;
-  botaoExportar.classList.add("opacity-50", "cursor-not-allowed");
+  function baixarKMZ() {
+  const link = document.createElement("a");
+  link.href = "https://irricontrol-test.onrender.com/exportar_kmz"; // atualiza se necessário
+  link.download = `estudo-irricontrol.kmz`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+ }
 
-  const pivosAtualizados = Object.entries(pivotsMap).map(([nome, marcador]) => {
-    const { lat, lng } = marcador.getLatLng();
-    const fora = marcador.options.fillColor === 'red';
-    return { nome, lat, lon: lng, fora };
-  });
-
-  try {
-    mostrarMensagem("💾 Salvando pivôs...", "sucesso");
-
-    await fetch("https://irricontrol-test.onrender.com/salvar_pivos_reposicionados", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(pivosAtualizados)
-    });
-
-    const res = await fetch("https://irricontrol-test.onrender.com/exportar_kmz");
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `estudo-irricontrol.kmz`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-
-    mostrarMensagem("✅ KMZ exportado com sucesso!");
-  } catch (error) {
-    mostrarMensagem("❌ Erro ao exportar KMZ", "erro");
-    console.error("Erro ao salvar pivôs reposicionados:", error);
-  } finally {
-    botaoExportar.disabled = false;
-    botaoExportar.classList.remove("opacity-50", "cursor-not-allowed");
-  }
-}
 
 
 </script>
