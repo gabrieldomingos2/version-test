@@ -17,6 +17,7 @@ from PIL import Image
 from statistics import mean
 from shapely.geometry import Polygon
 from datetime import datetime
+from typing import List
 
 
 app = FastAPI()
@@ -588,6 +589,12 @@ def exportar_kmz():
         if not antena or not pivos or not os.path.exists(caminho_imagem) or not os.path.exists(caminho_bounds):
             return {"erro": "Dados insuficientes para exportar"}
 
+        # ✅ Usa pivôs reposicionados, se existir o arquivo salvo
+        caminho_reposicionados = "static/pivos_reposicionados.json"
+        if os.path.exists(caminho_reposicionados):
+            with open(caminho_reposicionados, "r") as f:
+                pivos = json.load(f)
+
         with open(caminho_bounds, "r") as f:
             bounds = list(map(float, json.load(f)))
 
@@ -606,15 +613,13 @@ def exportar_kmz():
             ponto.style.iconstyle.color = "ffffffff"
             ponto.style.iconstyle.scale = 1.4
 
-
         # Círculos dos pivôs
         for ciclo in ciclos:
-           poligono = kml.newpolygon(name=ciclo["nome"])
-           poligono.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
-           poligono.style.polystyle.color = "00000000" 
-           poligono.style.linestyle.color = "ff0000ff" 
-           poligono.style.linestyle.width = 4.0       
-
+            poligono = kml.newpolygon(name=ciclo["nome"])
+            poligono.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
+            poligono.style.polystyle.color = "00000000"
+            poligono.style.linestyle.color = "ff0000ff"
+            poligono.style.linestyle.width = 4.0
 
         # Imagem da antena principal
         ground = kml.newgroundoverlay(name="Cobertura Principal")
@@ -665,7 +670,7 @@ def exportar_kmz():
                 repetidoras_adicionadas.append((caminho, nome_limpo))
                 repetidoras_adicionadas.append((json_path, nome_limpo.replace(".png", ".json")))
 
-        # Exporta o KML e empacota tudo como KMZ.
+        # Exporta o KML e empacota tudo como KMZ
         caminho_kml = "arquivos/estudo.kml"
         kml.save(caminho_kml)
 
@@ -688,3 +693,9 @@ def exportar_kmz():
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
     
+
+@app.post("/salvar_pivos_reposicionados")
+async def salvar_pivos_reposicionados(pivos: List[dict]):
+    with open("static/pivos_reposicionados.json", "w") as f:
+        json.dump(pivos, f)
+    return {"status": "ok"}
