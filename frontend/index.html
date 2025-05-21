@@ -187,11 +187,13 @@
   <!-- Painel de dados da simulação -->
   <div id="painel-dados" class="bg-black bg-opacity-60 p-4 rounded-xl shadow-xl w-64 hidden absolute right-4 top-20 z-[9998]">
     <h2 class="text-lg font-bold mb-2">📊 Dados da Simulação</h2>
-    <div class="flex justify-between items-center mb-2">
-      <span class="font-semibold text-sm text-green-300">...</span>
-      <button onclick="copiarPivosFora()" class="text-xs text-green-400 hover:underline">Copiar</button>
-    </div>
-    <p id="template-info" class="text-xs text-gray-400 mt-1">🌐 Template: --</p>
+    <div class="flex justify-between items-center mb-2 gap-2">
+  <div class="flex justify-between items-center mb-2 gap-2">
+  <span id="template-info" class="font-semibold text-sm text-green-300">🌐 Template: --</span>
+</div>
+
+  <button onclick="copiarPivosFora()" class="text-xs text-green-400 hover:underline">Copiar</button>
+</div>
     <p id="total-pivos" class="mb-1">Pivôs: --</p>
     <p id="fora-cobertura" class="mb-1">Fora da cobertura: --</p>
     <p id="altura-antena-info" class="mb-1">Antena principal: -- m</p>
@@ -236,7 +238,7 @@
   <label for="template-modelo" class="text-sm text-white">🌐 Template:</label>
   <select id="template-modelo" class="px-2 py-1 rounded bg-gray-800 text-white text-sm">
     <option value="Brazil_V6">🇧🇷 Brazil</option>
-    <option value="Europe V6">🇪🇺 Europe</option>
+    <option value="Europe_V6">🇪🇺 Europe</option>
   </select>
 </div>
 
@@ -1188,40 +1190,39 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("toggle-painel").addEventListener("click", () => togglePainel("painel-dados"));
  });
 
-// Carrega templates do backend
+// 🚀 Carrega templates do backend
 fetch('https://irricontrol-test.onrender.com/templates')
   .then(res => res.json())
   .then(templates => {
     const select = document.getElementById('template-modelo');
+
+    // 🔧 Preenche o select com os templates recebidos
     select.innerHTML = '';
     templates.forEach(t => {
       const opt = document.createElement('option');
       opt.value = t;
-      opt.textContent = t.includes("Brazil") ? "🇧🇷 " + t : 
-                         t.includes("Europe") ? "🇪🇺 " + t : 
+      opt.textContent = t.includes("Brazil") ? "🇧🇷 " + t :
+                         t.includes("Europe") ? "🇪🇺 " + t :
                          "🌐 " + t;
       select.appendChild(opt);
     });
 
-    // ✅ Já pega o primeiro como selecionado por padrão
-    templateSelecionado = select.value;
+    // ✅ Define template inicial (localStorage ou primeiro da lista)
+    templateSelecionado = localStorage.getItem('templateSelecionado') || select.value;
+    select.value = templateSelecionado;
+    document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
+
+    // 🎯 Atualiza quando selecionar outro
+    select.addEventListener("change", (e) => {
+      templateSelecionado = e.target.value;
+      localStorage.setItem('templateSelecionado', templateSelecionado);
+      document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
+    });
   })
   .catch(err => {
-    console.error("Erro ao carregar templates:", err);
+    console.error("⚠️ Erro ao carregar templates:", err);
     mostrarMensagem("⚠️ Erro ao carregar templates", "erro");
   });
-
-// Escuta mudanças no select de templates
-document.getElementById("template-modelo").addEventListener("change", (e) => {
-  templateSelecionado = e.target.value;
-  localStorage.setItem('templateSelecionado', templateSelecionado);
-  document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
-});
-
-// Quando carregar
-templateSelecionado = localStorage.getItem('templateSelecionado') || select.value;
-select.value = templateSelecionado;
-document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
 
 let linhasDiagnostico = [];
 let marcadoresBloqueio = [];
@@ -1445,6 +1446,21 @@ document.getElementById("desfazer-edicao").addEventListener("click", () => {
 });
 
 
+
+// 🔥 Atualiza o span do painel lateral quando o template muda
+document.getElementById("template-modelo").addEventListener("change", (e) => {
+    templateSelecionado = e.target.value;
+    localStorage.setItem('templateSelecionado', templateSelecionado);
+    document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
+});
+
+// 🔥 Ao carregar a página já deixa o template salvo no painel
+document.addEventListener("DOMContentLoaded", () => {
+    const select = document.getElementById('template-modelo');
+    templateSelecionado = localStorage.getItem('templateSelecionado') || select.value;
+    select.value = templateSelecionado;
+    document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
+});
 
 
 </script>

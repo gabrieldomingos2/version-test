@@ -281,7 +281,12 @@ async def processar_kmz(file: UploadFile = File(...)):
 
 
 @app.post("/simular_sinal")
-async def simular_sinal(antena: dict, template: str = "Brazil_V6"):
+async def simular_sinal(params: dict):
+    template = params.get("template", "Brazil_V6")
+    antena = params.get("antena", {})
+    pivos_recebidos = params.get("pivos_atuais", [])
+
+
     print("📡 Antena recebida:", antena)
 
     if not antena or not all(k in antena for k in ("lat", "lon", "altura")):
@@ -291,7 +296,7 @@ async def simular_sinal(antena: dict, template: str = "Brazil_V6"):
         return {"erro": f"Template '{template}' inválido"}
 
     tpl = TEMPLATES[template]
-    pivos_recebidos = antena.get("pivos_atuais", [])
+    pivos_recebidos = params.get("pivos_atuais", [])
 
     payload = {
         "version": "CloudRF-API-v3.24",
@@ -720,8 +725,8 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
-    
-        
+
+
 @app.get("/templates")
 def listar_templates():
     return list(TEMPLATES.keys())
