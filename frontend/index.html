@@ -1108,7 +1108,7 @@ const res = await fetch("https://irricontrol-test.onrender.com/simular_sinal", {
 if (antenaGlobal?.overlay && map.hasLayer(antenaGlobal.overlay)) {
   const b = antenaGlobal.overlay.getBounds().toBBoxString().split(",").map(Number);
   overlays.push({
-    imagem: "https://irricontrol-test.onrender.com/static/imagens/sinal.png",
+    imagem: antenaGlobal.overlay._url,
     bounds: [b[1], b[0], b[3], b[2]]
   });
 }
