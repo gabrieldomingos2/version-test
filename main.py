@@ -33,27 +33,41 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 API_URL = "https://api.cloudrf.com/area"
 API_KEY = "35113-e181126d4af70994359d767890b3a4f2604eb0ef"
 
-# 🔥 Modelos de Templates (Brazil, Europe, e futuros)
-TEMPLATES = {
-    "Brazil_V6": {
-        "frq": 915,
-        "txw": 0.031622,  # 15 dBm
-        "bwi": 0.125,
-        "colormap": "IRRICONTRO.dBm"
-    },
-    "Europe_V6": {
-        "frq": 868,
-        "txw": 0.01995262,  # 13 dBm
-        "bwi": 0.1,
-        "colormap": "EUROPEIRRI.dBm"
-    }
-}
-
 # 🔧 Função auxiliar para normalizar nomes
 def normalizar_nome(nome):
     if not nome:
         return ""
     return re.sub(r'[^a-z0-9]', '', nome.lower())
+
+# 🔥 Templates disponíveis no sistema
+TEMPLATES_DISPONIVEIS = [
+    {
+        "id": "Brazil_V6",
+        "nome": "🇧🇷 Brazil V6",
+        "frq": 915,
+        "col": "IRRICONTRO.dBm",
+        "site": "Brazil V6"
+    },
+    {
+        "id": "Europe_V6",
+        "nome": "🇪🇺 Europe V6",
+        "frq": 868,
+        "col": "EUROPEIRRI.dBm",
+        "site": "Europe V6"
+    }
+]
+
+# ✅ Endpoint para listar os templates disponíveis
+@app.get("/templates")
+def listar_templates():
+    return [t["id"] for t in TEMPLATES_DISPONIVEIS]
+
+# ✅ Função auxiliar para obter os dados de um template
+def obter_template(template_id):
+    template = next((t for t in TEMPLATES_DISPONIVEIS if t["id"] == template_id), None)
+    if not template:
+        raise ValueError(f"Template '{template_id}' não encontrado.")
+    return template
 
 
 @app.get("/icone-torre")
@@ -281,27 +295,23 @@ async def processar_kmz(file: UploadFile = File(...)):
 
 
 @app.post("/simular_sinal")
-async def simular_sinal(params: dict):
-    template = params.get("template", "Brazil_V6")
-    antena = params.get("antena", {})
-    pivos_recebidos = params.get("pivos_atuais", [])
-
-
+async def simular_sinal(antena: dict):
     print("📡 Antena recebida:", antena)
 
-    if not antena or not all(k in antena for k in ("lat", "lon", "altura")):
+    if not antena or not all(k in antena for k in ("lat", "lon", "altura", "template")):
         return {"erro": "Dados incompletos para simulação", "antena": antena}
 
-    if template not in TEMPLATES:
-        return {"erro": f"Template '{template}' inválido. Templates válidos: {list(TEMPLATES.keys())}"}
+    try:
+        tpl = obter_template(antena["template"])
+    except ValueError as e:
+        return {"erro": str(e)}
 
-    tpl = TEMPLATES[template]
-    pivos_recebidos = params.get("pivos_atuais", [])
+    pivos_recebidos = antena.get("pivos_atuais", [])
 
     payload = {
         "version": "CloudRF-API-v3.24",
-        "site": f"Estudo {template}",
-        "network": "Irricontrol",
+        "site": tpl["site"],
+        "network": "Network",
         "engine": 2,
         "coordinates": 1,
         "transmitter": {
@@ -309,16 +319,12 @@ async def simular_sinal(params: dict):
             "lon": antena["lon"],
             "alt": antena["altura"],
             "frq": tpl["frq"],
-            "txw": tpl["txw"],
-            "bwi": tpl["bwi"],
+            "txw": 0.3,
+            "bwi": 0.1,
             "powerUnit": "W"
         },
         "receiver": {
-            "lat": 0,
-            "lon": 0,
-            "alt": 3,
-            "rxg": 3,
-            "rxs": -90
+            "lat": 0, "lon": 0, "alt": 3, "rxg": 3, "rxs": -90
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
         "antenna": {
@@ -334,15 +340,12 @@ async def simular_sinal(params: dict):
             "obstacles": 0, "clt": "Minimal.clt"
         },
         "output": {
-            "units": "m", "col": tpl["colormap"], "out": 2,
+            "units": "m", "col": tpl["col"], "out": 2,
             "ber": 1, "mod": 7, "nf": -120, "res": 30, "rad": 10
         }
     }
 
-    print("🚀 Payload:", json.dumps(payload, indent=2))
-
     headers = {"key": API_KEY, "Content-Type": "application/json"}
-
     async with httpx.AsyncClient() as client:
         resposta = await client.post(API_URL, headers=headers, json=payload)
 
@@ -373,23 +376,22 @@ async def simular_sinal(params: dict):
     }
 
 
+
 @app.post("/simular_manual")
 async def simular_manual(params: dict):
     print("🚀 Dados recebidos em /simular_manual:", params)
 
-    if not all(k in params for k in ("lat", "lon", "pivos_atuais")):
+    if not all(k in params for k in ("lat", "lon", "template", "pivos_atuais")):
         return {"erro": "Dados incompletos recebidos para simulação manual", "dados": params}
 
-    template = params.get("template", "Brazil_V6")
-
-    if template not in TEMPLATES:
-        return {"erro": f"Template '{template}' inválido", "dados": params}
-
-    tpl = TEMPLATES[template]
+    try:
+        tpl = obter_template(params["template"])
+    except ValueError as e:
+        return {"erro": str(e)}
 
     payload = {
         "version": "CloudRF-API-v3.24",
-        "site": f"Manual {template}",
+        "site": tpl["site"],
         "network": "Modo Expert",
         "engine": 2,
         "coordinates": 1,
@@ -398,8 +400,8 @@ async def simular_manual(params: dict):
             "lon": params["lon"],
             "alt": params.get("altura", 15),
             "frq": tpl["frq"],
-            "txw": tpl["txw"],
-            "bwi": tpl["bwi"],
+            "txw": 0.3,
+            "bwi": 0.1,
             "powerUnit": "W"
         },
         "receiver": {
@@ -441,7 +443,7 @@ async def simular_manual(params: dict):
         },
         "output": {
             "units": "m",
-            "col": tpl["colormap"],
+            "col": tpl["col"],
             "out": 2,
             "ber": 1,
             "mod": 7,
@@ -452,7 +454,6 @@ async def simular_manual(params: dict):
     }
 
     headers = {"key": API_KEY, "Content-Type": "application/json"}
-
     async with httpx.AsyncClient() as client:
         resposta = await client.post(API_URL, headers=headers, json=payload)
 
@@ -466,28 +467,23 @@ async def simular_manual(params: dict):
     if not imagem_url or not bounds:
         return {"erro": "Resposta inválida da API CloudRF", "dados": data}
 
-    # 🔽 Gera nome seguro do arquivo baseado na localização
     lat_str = f"{params['lat']:.5f}".replace(".", "_")
     lon_str = f"{params['lon']:.5f}".replace(".", "_")
     nome_arquivo = f"repetidora_{lat_str}_{lon_str}.png"
     caminho_local = f"static/imagens/{nome_arquivo}"
 
-    # ⬇️ Baixa e salva a imagem da repetidora
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
         with open(caminho_local, "wb") as f:
             f.write(r.content)
 
-    # 🧭 Salva os bounds da imagem
     json_bounds_path = caminho_local.replace(".png", ".json")
     with open(json_bounds_path, "w") as f:
         json.dump({"bounds": bounds}, f)
 
     imagem_local_url = f"https://irricontrol-test.onrender.com/static/imagens/{nome_arquivo}"
 
-    # 🔍 Reavalia os pivôs com a nova cobertura
     pivos_recebidos = params.get("pivos_atuais", [])
-
     pivos_com_status = detectar_pivos_fora(
         bounds,
         pivos_recebidos,
@@ -500,6 +496,7 @@ async def simular_manual(params: dict):
         "bounds": bounds,
         "pivos": pivos_com_status
     }
+
 
 @app.post("/reavaliar_pivos")
 async def reavaliar_pivos(data: dict):
@@ -633,30 +630,28 @@ def exportar_kmz():
 
         kml = simplekml.Kml()
 
-        # Torre principal
+        # 🗼 Torre principal
         torre = kml.newpoint(name=f"{antena['nome']}", coords=[(antena["lon"], antena["lat"])])
         torre.description = f"Torre principal\nAltura: {antena['altura']}m"
         torre.style.iconstyle.icon.href = "cloudrf.png"
         torre.style.iconstyle.scale = 1.5
 
-        # Pivôs
+        # 🎯 Pivôs
         for p in pivos:
             ponto = kml.newpoint(name=p["nome"], coords=[(p["lon"], p["lat"])])
             ponto.description = "❌ Fora da cobertura" if p.get("fora") else "✅ Coberto"
             ponto.style.iconstyle.color = "ffffffff"
             ponto.style.iconstyle.scale = 1.4
 
-
-        # Círculos dos pivôs
+        # 🔵 Círculos dos pivôs
         for ciclo in ciclos:
-           poligono = kml.newpolygon(name=ciclo["nome"])
-           poligono.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
-           poligono.style.polystyle.color = "00000000" 
-           poligono.style.linestyle.color = "ff0000ff" 
-           poligono.style.linestyle.width = 4.0       
+            poligono = kml.newpolygon(name=ciclo["nome"])
+            poligono.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
+            poligono.style.polystyle.color = "00000000"
+            poligono.style.linestyle.color = "ff0000ff"
+            poligono.style.linestyle.width = 4.0
 
-
-        # Imagem da antena principal
+        # 🗺️ Overlay da antena principal
         ground = kml.newgroundoverlay(name="Cobertura Principal")
         ground.icon.href = "sinal.png"
         ground.latlonbox.north = bounds[2]
@@ -665,7 +660,7 @@ def exportar_kmz():
         ground.latlonbox.west = bounds[1]
         ground.color = "88ffffff"
 
-        # Repetidoras com overlay
+        # 🔥 Repetidoras e seus overlays
         repetidoras_adicionadas = []
         for nome_arquivo in os.listdir("static/imagens"):
             if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
@@ -683,17 +678,15 @@ def exportar_kmz():
                     print(f"⚠️ Erro ao carregar bounds do JSON: {json_path} → {e}")
                     continue
 
-                nome_limpo = nome_arquivo
-
                 overlay = kml.newgroundoverlay(name=f"Repetidora {nome_arquivo.replace('.png','')}")
-                overlay.icon.href = nome_limpo
+                overlay.icon.href = nome_arquivo
                 overlay.latlonbox.south = bounds_rep[0]
                 overlay.latlonbox.west = bounds_rep[1]
                 overlay.latlonbox.north = bounds_rep[2]
                 overlay.latlonbox.east = bounds_rep[3]
                 overlay.color = "77ffffff"
 
-                # Marca de posição da repetidora
+                # 🔸 Marca de posição da repetidora
                 lat_centro = (bounds_rep[0] + bounds_rep[2]) / 2
                 lon_centro = (bounds_rep[1] + bounds_rep[3]) / 2
 
@@ -702,10 +695,10 @@ def exportar_kmz():
                 ponto.style.iconstyle.scale = 1.2
                 ponto.description = f"Repetidora centralizada em {lat_centro:.4f}, {lon_centro:.4f}"
 
-                repetidoras_adicionadas.append((caminho, nome_limpo))
-                repetidoras_adicionadas.append((json_path, nome_limpo.replace(".png", ".json")))
+                repetidoras_adicionadas.append((caminho, nome_arquivo))
+                repetidoras_adicionadas.append((json_path, nome_arquivo.replace(".png", ".json")))
 
-        # Exporta o KML e empacota tudo como KMZ.
+        # 📦 Empacota como KMZ
         caminho_kml = "arquivos/estudo.kml"
         kml.save(caminho_kml)
 
@@ -727,11 +720,3 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
-
-
-@app.get("/templates")
-def listar_templates():
-    return list(TEMPLATES.keys())
-
-
-    
