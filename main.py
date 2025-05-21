@@ -33,6 +33,22 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 API_URL = "https://api.cloudrf.com/area"
 API_KEY = "35113-e181126d4af70994359d767890b3a4f2604eb0ef"
 
+# 🔥 Modelos de Templates (Brazil, Europe, e futuros)
+TEMPLATES = {
+    "Brazil_V6": {
+        "frq": 915,
+        "txw": 0.031622,  # 15 dBm
+        "bwi": 0.125,
+        "colormap": "IRRICONTRO.dBm"
+    },
+    "Europe_V6": {
+        "frq": 868,
+        "txw": 0.01995262,  # 13 dBm
+        "bwi": 0.1,
+        "colormap": "EUROPEIRRI.dBm"
+    }
+}
+
 # 🔧 Função auxiliar para normalizar nomes
 def normalizar_nome(nome):
     if not nome:
@@ -265,31 +281,39 @@ async def processar_kmz(file: UploadFile = File(...)):
 
 
 @app.post("/simular_sinal")
-async def simular_sinal(antena: dict):
+async def simular_sinal(antena: dict, template: str = "Brazil_V6"):
     print("📡 Antena recebida:", antena)
 
     if not antena or not all(k in antena for k in ("lat", "lon", "altura")):
         return {"erro": "Dados incompletos para simulação", "antena": antena}
 
-    pivos_recebidos = antena.get("pivos_atuais", [])  # 👈 usa os pivôs editados
+    if template not in TEMPLATES:
+        return {"erro": f"Template '{template}' inválido"}
+
+    tpl = TEMPLATES[template]
+    pivos_recebidos = antena.get("pivos_atuais", [])
 
     payload = {
-        "version": "CloudRF-API-v3.23",
-        "site": "Brazil V6",
-        "network": "My Network",
+        "version": "CloudRF-API-v3.24",
+        "site": template,
+        "network": "Irricontrol",
         "engine": 2,
         "coordinates": 1,
         "transmitter": {
             "lat": antena["lat"],
             "lon": antena["lon"],
             "alt": antena["altura"],
-            "frq": 915,
-            "txw": 0.3,
-            "bwi": 0.1,
+            "frq": tpl["frq"],
+            "txw": tpl["txw"],
+            "bwi": tpl["bwi"],
             "powerUnit": "W"
         },
         "receiver": {
-            "lat": 0, "lon": 0, "alt": 3, "rxg": 3, "rxs": -90
+            "lat": 0,
+            "lon": 0,
+            "alt": 3,
+            "rxg": 3,
+            "rxs": -90
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
         "antenna": {
@@ -305,12 +329,13 @@ async def simular_sinal(antena: dict):
             "obstacles": 0, "clt": "Minimal.clt"
         },
         "output": {
-            "units": "m", "col": "IRRICONTRO.dBm", "out": 2,
+            "units": "m", "col": tpl["colormap"], "out": 2,
             "ber": 1, "mod": 7, "nf": -120, "res": 30, "rad": 10
         }
     }
 
     headers = {"key": API_KEY, "Content-Type": "application/json"}
+
     async with httpx.AsyncClient() as client:
         resposta = await client.post(API_URL, headers=headers, json=payload)
 
@@ -331,7 +356,6 @@ async def simular_sinal(antena: dict):
     with open("static/imagens/sinal_bounds.json", "w") as f:
         json.dump(bounds, f)
 
-    # 🔁 Usa os pivôs recebidos, não o KMZ!
     pivos_com_status = detectar_pivos_fora(bounds, pivos_recebidos)
 
     return {
@@ -349,8 +373,15 @@ async def simular_manual(params: dict):
     if not all(k in params for k in ("lat", "lon", "pivos_atuais")):
         return {"erro": "Dados incompletos recebidos para simulação manual", "dados": params}
 
+    template = params.get("template", "Brazil_V6")
+
+    if template not in TEMPLATES:
+        return {"erro": f"Template '{template}' inválido", "dados": params}
+
+    tpl = TEMPLATES[template]
+
     payload = {
-        "version": "CloudRF-API-v3.23",
+        "version": "CloudRF-API-v3.24",
         "site": "Manual Entry",
         "network": "Modo Expert",
         "engine": 2,
@@ -359,9 +390,9 @@ async def simular_manual(params: dict):
             "lat": params["lat"],
             "lon": params["lon"],
             "alt": params.get("altura", 15),
-            "frq": 915,
-            "txw": 0.3,
-            "bwi": 0.1,
+            "frq": tpl["frq"],
+            "txw": tpl["txw"],
+            "bwi": tpl["bwi"],
             "powerUnit": "W"
         },
         "receiver": {
@@ -403,7 +434,7 @@ async def simular_manual(params: dict):
         },
         "output": {
             "units": "m",
-            "col": "IRRICONTRO.dBm",
+            "col": tpl["colormap"],
             "out": 2,
             "ber": 1,
             "mod": 7,
@@ -414,6 +445,7 @@ async def simular_manual(params: dict):
     }
 
     headers = {"key": API_KEY, "Content-Type": "application/json"}
+
     async with httpx.AsyncClient() as client:
         resposta = await client.post(API_URL, headers=headers, json=payload)
 
@@ -427,7 +459,7 @@ async def simular_manual(params: dict):
     if not imagem_url or not bounds:
         return {"erro": "Resposta inválida da API CloudRF", "dados": data}
 
-    # 🔽 Corrige nome seguro do arquivo
+    # 🔽 Gera nome seguro do arquivo baseado na localização
     lat_str = f"{params['lat']:.5f}".replace(".", "_")
     lon_str = f"{params['lon']:.5f}".replace(".", "_")
     nome_arquivo = f"repetidora_{lat_str}_{lon_str}.png"
@@ -439,16 +471,16 @@ async def simular_manual(params: dict):
         with open(caminho_local, "wb") as f:
             f.write(r.content)
 
-    # 🧭 Salva os bounds em um arquivo JSON junto da imagem
+    # 🧭 Salva os bounds da imagem
     json_bounds_path = caminho_local.replace(".png", ".json")
     with open(json_bounds_path, "w") as f:
         json.dump({"bounds": bounds}, f)
 
     imagem_local_url = f"https://irricontrol-test.onrender.com/static/imagens/{nome_arquivo}"
 
-    # Recarrega os pivôs
+    # 🔍 Reavalia os pivôs com a nova cobertura
     pivos_recebidos = params.get("pivos_atuais", [])
-    
+
     pivos_com_status = detectar_pivos_fora(
         bounds,
         pivos_recebidos,
@@ -688,4 +720,11 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
+    
+        
+@app.get("/templates")
+def listar_templates():
+    return list(TEMPLATES.keys())
+
+
     
