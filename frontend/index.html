@@ -685,6 +685,8 @@ data.bombas.forEach(bomba => {
 
     mostrarLoader(true);
 
+    templateSelecionado = document.getElementById('template-modelo').value;
+
     // ✅ Aplica posições editadas antes de simular
   if (Object.keys(posicoesEditadas).length > 0) {
     Object.entries(posicoesEditadas).forEach(([nome, novaPos]) => {
@@ -706,6 +708,7 @@ const payload = {
   template: templateSelecionado
 };
 
+console.log("🚀 Payload enviado:", payload);
 const res = await fetch("https://irricontrol-test.onrender.com/simular_sinal", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -942,6 +945,11 @@ const res = await fetch("https://irricontrol-test.onrender.com/simular_sinal", {
   document.getElementById("confirmar-repetidora").addEventListener("click", async () => {
     if (!coordenadaClicada) return;
 
+    mostrarLoader(true);
+
+    // 🔥 Garante que pega o template certo na hora
+    templateSelecionado = document.getElementById('template-modelo').value;
+
     const alturaAntena = parseFloat(document.getElementById("altura-antena-rep").value);
     const alturaReceiver = parseFloat(document.getElementById("altura-receiver-rep").value);
 
@@ -1001,6 +1009,8 @@ const res = await fetch("https://irricontrol-test.onrender.com/simular_sinal", {
       })),
       template: templateSelecionado
     };
+
+    console.log("🚀 Payload enviado (Repetidora):", payload);
 
     const res = await fetch("https://irricontrol-test.onrender.com/simular_manual", {
       method: "POST",
@@ -1190,12 +1200,14 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("toggle-painel").addEventListener("click", () => togglePainel("painel-dados"));
  });
 
-// 🚀 Carrega templates do backend
-fetch('https://irricontrol-test.onrender.com/templates')
-  .then(res => res.json())
-  .then(templates => {
-    const select = document.getElementById('template-modelo');
+const select = document.getElementById('template-modelo');
 
+fetch('https://irricontrol-test.onrender.com/templates')
+  .then(res => {
+    if (!res.ok) throw new Error("Falha na resposta da API");
+    return res.json();
+  })
+  .then(templates => {
     // 🔧 Preenche o select com os templates recebidos
     select.innerHTML = '';
     templates.forEach(t => {
@@ -1211,18 +1223,24 @@ fetch('https://irricontrol-test.onrender.com/templates')
     templateSelecionado = localStorage.getItem('templateSelecionado') || select.value;
     select.value = templateSelecionado;
     document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
-
-    // 🎯 Atualiza quando selecionar outro
-    select.addEventListener("change", (e) => {
-      templateSelecionado = e.target.value;
-      localStorage.setItem('templateSelecionado', templateSelecionado);
-      document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
-    });
   })
   .catch(err => {
     console.error("⚠️ Erro ao carregar templates:", err);
-    mostrarMensagem("⚠️ Erro ao carregar templates", "erro");
+    mostrarMensagem("⚠️ Erro ao carregar templates, usando padrão", "erro");
+    
+    // Fallback → usa o que estava no HTML
+    templateSelecionado = localStorage.getItem('templateSelecionado') || select.value;
+    select.value = templateSelecionado;
+    document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
   });
+
+// Listener único, fora do fetch, seguro
+select.addEventListener("change", (e) => {
+  templateSelecionado = e.target.value;
+  localStorage.setItem('templateSelecionado', templateSelecionado);
+  document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
+});
+
 
 let linhasDiagnostico = [];
 let marcadoresBloqueio = [];
@@ -1443,23 +1461,6 @@ document.getElementById("desfazer-edicao").addEventListener("click", () => {
   posicoesEditadas = {};
 
   mostrarMensagem("↩️ Edição desfeita, pivôs restaurados.");
-});
-
-
-
-// 🔥 Atualiza o span do painel lateral quando o template muda
-document.getElementById("template-modelo").addEventListener("change", (e) => {
-    templateSelecionado = e.target.value;
-    localStorage.setItem('templateSelecionado', templateSelecionado);
-    document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
-});
-
-// 🔥 Ao carregar a página já deixa o template salvo no painel
-document.addEventListener("DOMContentLoaded", () => {
-    const select = document.getElementById('template-modelo');
-    templateSelecionado = localStorage.getItem('templateSelecionado') || select.value;
-    select.value = templateSelecionado;
-    document.getElementById("template-info").textContent = `🌐 Template: ${templateSelecionado}`;
 });
 
 

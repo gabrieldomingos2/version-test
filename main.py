@@ -362,8 +362,11 @@ async def simular_sinal(antena: dict):
         return {"erro": "Resposta inválida da API CloudRF", "dados": data}
 
     # 🔥 Nomes dos arquivos com base no template
-    nome_arquivo = f"sinal_{tpl['id'].lower()}.png"
+    lat_str = str(antena["lat"]).replace(".", "_")
+    lon_str = str(antena["lon"]).replace(".", "_")
+    nome_arquivo = f"sinal_{tpl['id'].lower()}_{lat_str}_{lon_str}.png"
     caminho_local = f"static/imagens/{nome_arquivo}"
+
 
     # 🔥 Salva imagem PNG
     async with httpx.AsyncClient() as client:
@@ -372,9 +375,10 @@ async def simular_sinal(antena: dict):
             f.write(r.content)
 
     # 🔥 Salva bounds em JSON separado
-    bounds_path = f"static/imagens/{tpl['id'].lower()}_bounds.json"
-    with open(bounds_path, "w") as f:
-        json.dump(bounds, f)
+    json_bounds_path = caminho_local.replace(".png", ".json")
+    with open(json_bounds_path, "w") as f:
+        json.dump({"bounds": bounds}, f)
+
 
     # 🔎 Detecta pivôs fora da cobertura
     pivos_com_status = detectar_pivos_fora(bounds, pivos_recebidos, caminho_imagem=caminho_local)
@@ -632,24 +636,30 @@ async def perfil_elevacao(req: dict):
     return {"bloqueio": bloqueio, "elevacao": elevs}
 
 
+from fastapi import Query
+
 @app.get("/exportar_kmz")
-def exportar_kmz():
+def exportar_kmz(
+    imagem: str = Query(..., description="Nome da imagem PNG principal, ex: sinal_brazil_v6_-22_4756_-46_9089.png"),
+    bounds_file: str = Query(..., description="Nome do JSON de bounds, ex: sinal_brazil_v6_-22_4756_-46_9089.json")
+):
     try:
         antena, pivos, ciclos, _ = parse_kmz("arquivos/entrada.kmz")
 
-        caminho_imagem = "static/imagens/sinal.png"
-        caminho_bounds = "static/imagens/sinal_bounds.json"
+        caminho_imagem = f"static/imagens/{imagem}"
+        caminho_bounds = f"static/imagens/{bounds_file}"
 
         if not antena or not pivos or not os.path.exists(caminho_imagem) or not os.path.exists(caminho_bounds):
             return {"erro": "Dados insuficientes para exportar"}
 
         with open(caminho_bounds, "r") as f:
-            bounds = json.load(f)
+            bounds = json.load(f)["bounds"] if "bounds" in json.load(f) else json.load(f)
 
         kml = simplekml.Kml()
 
         # 🗼 Torre principal
-        torre = kml.newpoint(name=antena["nome"], coords=[(antena["lon"], antena["lat"])])
+        torre = kml.newpoint(name=antena["nome"], coords=[(antena["lon"], antena["lat"])]
+        )
         torre.description = f"Torre principal\nAltura: {antena['altura']}m"
         torre.style.iconstyle.icon.href = "cloudrf.png"
         torre.style.iconstyle.scale = 1.5
@@ -671,7 +681,7 @@ def exportar_kmz():
 
         # 🗺️ Overlay da torre principal
         ground = kml.newgroundoverlay(name="Cobertura Principal")
-        ground.icon.href = "sinal.png"
+        ground.icon.href = imagem
         ground.latlonbox.north = bounds[2]
         ground.latlonbox.south = bounds[0]
         ground.latlonbox.east = bounds[3]
@@ -684,16 +694,16 @@ def exportar_kmz():
 
         for nome_arquivo in arquivos_overlay:
             if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
-                caminho_imagem = os.path.join("static/imagens", nome_arquivo)
-                caminho_json = caminho_imagem.replace(".png", ".json")
+                caminho_rep_imagem = os.path.join("static/imagens", nome_arquivo)
+                caminho_rep_json = caminho_rep_imagem.replace(".png", ".json")
 
-                if not os.path.exists(caminho_json):
+                if not os.path.exists(caminho_rep_json):
                     print(f"⚠️ JSON de bounds não encontrado para {nome_arquivo}")
                     continue
 
                 try:
-                    with open(caminho_json, "r") as f:
-                        bounds_rep = json.load(f)["bounds"]
+                    with open(caminho_rep_json, "r") as f:
+                        bounds_rep = json.load(f)["bounds"] if "bounds" in json.load(f) else json.load(f)
                 except Exception as e:
                     print(f"⚠️ Erro ao ler bounds de {nome_arquivo}: {e}")
                     continue
@@ -714,8 +724,8 @@ def exportar_kmz():
                 ponto.style.iconstyle.icon.href = "cloudrf.png"
                 ponto.style.iconstyle.scale = 1.2
 
-                repetidoras_adicionadas.append((caminho_imagem, nome_arquivo))
-                repetidoras_adicionadas.append((caminho_json, nome_arquivo.replace(".png", ".json")))
+                repetidoras_adicionadas.append((caminho_rep_imagem, nome_arquivo))
+                repetidoras_adicionadas.append((caminho_rep_json, nome_arquivo.replace(".png", ".json")))
 
         # 📦 Monta o arquivo KMZ
         caminho_kml = "arquivos/estudo.kml"
@@ -726,7 +736,7 @@ def exportar_kmz():
 
         with zipfile.ZipFile(caminho_kmz_zip, "w") as kmz:
             kmz.write(caminho_kml, "estudo.kml")
-            kmz.write("static/imagens/sinal.png", "sinal.png")
+            kmz.write(caminho_imagem, imagem)
             kmz.write("static/imagens/cloudrf.png", "cloudrf.png")
 
             for arquivo, nome_destino in repetidoras_adicionadas:
@@ -740,3 +750,4 @@ def exportar_kmz():
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
+
