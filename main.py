@@ -345,6 +345,8 @@ async def simular_sinal(antena: dict):
         }
     }
 
+    print("🚀 Payload enviado:", json.dumps(payload, indent=2))
+
     headers = {"key": API_KEY, "Content-Type": "application/json"}
     async with httpx.AsyncClient() as client:
         resposta = await client.post(API_URL, headers=headers, json=payload)
@@ -356,25 +358,33 @@ async def simular_sinal(antena: dict):
     imagem_url = data.get("PNG_WGS84")
     bounds = data.get("bounds")
 
-    caminho_local = "static/imagens/sinal.png"
+    if not imagem_url or not bounds:
+        return {"erro": "Resposta inválida da API CloudRF", "dados": data}
 
+    # 🔥 Nomes dos arquivos com base no template
+    nome_arquivo = f"sinal_{tpl['id'].lower()}.png"
+    caminho_local = f"static/imagens/{nome_arquivo}"
+
+    # 🔥 Salva imagem PNG
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
         with open(caminho_local, "wb") as f:
             f.write(r.content)
 
-    with open("static/imagens/sinal_bounds.json", "w") as f:
+    # 🔥 Salva bounds em JSON separado
+    bounds_path = f"static/imagens/{tpl['id'].lower()}_bounds.json"
+    with open(bounds_path, "w") as f:
         json.dump(bounds, f)
 
-    pivos_com_status = detectar_pivos_fora(bounds, pivos_recebidos)
+    # 🔎 Detecta pivôs fora da cobertura
+    pivos_com_status = detectar_pivos_fora(bounds, pivos_recebidos, caminho_imagem=caminho_local)
 
     return {
-        "imagem_salva": "https://irricontrol-test.onrender.com/static/imagens/sinal.png",
+        "imagem_salva": f"https://irricontrol-test.onrender.com/static/imagens/{nome_arquivo}",
         "bounds": bounds,
         "status": "Simulação concluída",
         "pivos": pivos_com_status
     }
-
 
 
 @app.post("/simular_manual")
@@ -453,6 +463,8 @@ async def simular_manual(params: dict):
         }
     }
 
+    print("🚀 Payload enviado (manual):", json.dumps(payload, indent=2))
+
     headers = {"key": API_KEY, "Content-Type": "application/json"}
     async with httpx.AsyncClient() as client:
         resposta = await client.post(API_URL, headers=headers, json=payload)
@@ -467,22 +479,26 @@ async def simular_manual(params: dict):
     if not imagem_url or not bounds:
         return {"erro": "Resposta inválida da API CloudRF", "dados": data}
 
+    # 🔥 Gera nome do arquivo com template + coordenadas
     lat_str = f"{params['lat']:.5f}".replace(".", "_")
     lon_str = f"{params['lon']:.5f}".replace(".", "_")
-    nome_arquivo = f"repetidora_{lat_str}_{lon_str}.png"
+    nome_arquivo = f"repetidora_{tpl['id'].lower()}_{lat_str}_{lon_str}.png"
     caminho_local = f"static/imagens/{nome_arquivo}"
 
+    # 🔥 Salva imagem PNG
     async with httpx.AsyncClient() as client:
         r = await client.get(imagem_url)
         with open(caminho_local, "wb") as f:
             f.write(r.content)
 
+    # 🔥 Salva bounds JSON
     json_bounds_path = caminho_local.replace(".png", ".json")
     with open(json_bounds_path, "w") as f:
         json.dump({"bounds": bounds}, f)
 
     imagem_local_url = f"https://irricontrol-test.onrender.com/static/imagens/{nome_arquivo}"
 
+    # 🔎 Avalia cobertura dos pivôs
     pivos_recebidos = params.get("pivos_atuais", [])
     pivos_com_status = detectar_pivos_fora(
         bounds,
@@ -496,6 +512,7 @@ async def simular_manual(params: dict):
         "bounds": bounds,
         "pivos": pivos_com_status
     }
+
 
 
 @app.post("/reavaliar_pivos")
@@ -619,6 +636,7 @@ async def perfil_elevacao(req: dict):
 def exportar_kmz():
     try:
         antena, pivos, ciclos, _ = parse_kmz("arquivos/entrada.kmz")
+
         caminho_imagem = "static/imagens/sinal.png"
         caminho_bounds = "static/imagens/sinal_bounds.json"
 
@@ -626,12 +644,12 @@ def exportar_kmz():
             return {"erro": "Dados insuficientes para exportar"}
 
         with open(caminho_bounds, "r") as f:
-            bounds = list(map(float, json.load(f)))
+            bounds = json.load(f)
 
         kml = simplekml.Kml()
 
         # 🗼 Torre principal
-        torre = kml.newpoint(name=f"{antena['nome']}", coords=[(antena["lon"], antena["lat"])])
+        torre = kml.newpoint(name=antena["nome"], coords=[(antena["lon"], antena["lat"])])
         torre.description = f"Torre principal\nAltura: {antena['altura']}m"
         torre.style.iconstyle.icon.href = "cloudrf.png"
         torre.style.iconstyle.scale = 1.5
@@ -651,7 +669,7 @@ def exportar_kmz():
             poligono.style.linestyle.color = "ff0000ff"
             poligono.style.linestyle.width = 4.0
 
-        # 🗺️ Overlay da antena principal
+        # 🗺️ Overlay da torre principal
         ground = kml.newgroundoverlay(name="Cobertura Principal")
         ground.icon.href = "sinal.png"
         ground.latlonbox.north = bounds[2]
@@ -660,25 +678,27 @@ def exportar_kmz():
         ground.latlonbox.west = bounds[1]
         ground.color = "88ffffff"
 
-        # 🔥 Repetidoras e seus overlays
+        # 🔥 Adiciona overlays das repetidoras
+        arquivos_overlay = os.listdir("static/imagens")
         repetidoras_adicionadas = []
-        for nome_arquivo in os.listdir("static/imagens"):
-            if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
-                caminho = os.path.join("static/imagens", nome_arquivo)
-                json_path = caminho.replace(".png", ".json")
 
-                if not os.path.exists(json_path):
-                    print(f"⚠️ JSON com bounds não encontrado para {nome_arquivo}")
+        for nome_arquivo in arquivos_overlay:
+            if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
+                caminho_imagem = os.path.join("static/imagens", nome_arquivo)
+                caminho_json = caminho_imagem.replace(".png", ".json")
+
+                if not os.path.exists(caminho_json):
+                    print(f"⚠️ JSON de bounds não encontrado para {nome_arquivo}")
                     continue
 
                 try:
-                    with open(json_path, "r") as f:
+                    with open(caminho_json, "r") as f:
                         bounds_rep = json.load(f)["bounds"]
                 except Exception as e:
-                    print(f"⚠️ Erro ao carregar bounds do JSON: {json_path} → {e}")
+                    print(f"⚠️ Erro ao ler bounds de {nome_arquivo}: {e}")
                     continue
 
-                overlay = kml.newgroundoverlay(name=f"Repetidora {nome_arquivo.replace('.png','')}")
+                overlay = kml.newgroundoverlay(name=f"Overlay {nome_arquivo}")
                 overlay.icon.href = nome_arquivo
                 overlay.latlonbox.south = bounds_rep[0]
                 overlay.latlonbox.west = bounds_rep[1]
@@ -686,19 +706,18 @@ def exportar_kmz():
                 overlay.latlonbox.east = bounds_rep[3]
                 overlay.color = "77ffffff"
 
-                # 🔸 Marca de posição da repetidora
                 lat_centro = (bounds_rep[0] + bounds_rep[2]) / 2
                 lon_centro = (bounds_rep[1] + bounds_rep[3]) / 2
 
                 ponto = kml.newpoint(name="Repetidora", coords=[(lon_centro, lat_centro)])
+                ponto.description = f"Repetidora em {lat_centro:.5f}, {lon_centro:.5f}"
                 ponto.style.iconstyle.icon.href = "cloudrf.png"
                 ponto.style.iconstyle.scale = 1.2
-                ponto.description = f"Repetidora centralizada em {lat_centro:.4f}, {lon_centro:.4f}"
 
-                repetidoras_adicionadas.append((caminho, nome_arquivo))
-                repetidoras_adicionadas.append((json_path, nome_arquivo.replace(".png", ".json")))
+                repetidoras_adicionadas.append((caminho_imagem, nome_arquivo))
+                repetidoras_adicionadas.append((caminho_json, nome_arquivo.replace(".png", ".json")))
 
-        # 📦 Empacota como KMZ
+        # 📦 Monta o arquivo KMZ
         caminho_kml = "arquivos/estudo.kml"
         kml.save(caminho_kml)
 
@@ -707,8 +726,9 @@ def exportar_kmz():
 
         with zipfile.ZipFile(caminho_kmz_zip, "w") as kmz:
             kmz.write(caminho_kml, "estudo.kml")
-            kmz.write(caminho_imagem, "sinal.png")
+            kmz.write("static/imagens/sinal.png", "sinal.png")
             kmz.write("static/imagens/cloudrf.png", "cloudrf.png")
+
             for arquivo, nome_destino in repetidoras_adicionadas:
                 kmz.write(arquivo, nome_destino)
 
