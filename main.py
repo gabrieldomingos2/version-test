@@ -293,14 +293,14 @@ async def simular_sinal(params: dict):
         return {"erro": "Dados incompletos para simulação", "antena": antena}
 
     if template not in TEMPLATES:
-        return {"erro": f"Template '{template}' inválido"}
+        return {"erro": f"Template '{template}' inválido. Templates válidos: {list(TEMPLATES.keys())}"}
 
     tpl = TEMPLATES[template]
     pivos_recebidos = params.get("pivos_atuais", [])
 
     payload = {
         "version": "CloudRF-API-v3.24",
-        "site": template,
+        "site": f"Estudo {template}",
         "network": "Irricontrol",
         "engine": 2,
         "coordinates": 1,
@@ -338,6 +338,8 @@ async def simular_sinal(params: dict):
             "ber": 1, "mod": 7, "nf": -120, "res": 30, "rad": 10
         }
     }
+
+    print("🚀 Payload:", json.dumps(payload, indent=2))
 
     headers = {"key": API_KEY, "Content-Type": "application/json"}
 
@@ -387,7 +389,7 @@ async def simular_manual(params: dict):
 
     payload = {
         "version": "CloudRF-API-v3.24",
-        "site": "Manual Entry",
+        "site": f"Manual {template}",
         "network": "Modo Expert",
         "engine": 2,
         "coordinates": 1,
