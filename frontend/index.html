@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -175,6 +174,14 @@
 
   <!-- Button to toggle labels -->
   <button id="toggle-legenda" class="glass-button" title="Toggle labels">🏷️</button>
+
+   <!-- Button to edit pivots -->
+  <button id="editar-pivos" class="glass-button" title="Edit pivot centers">✏️ Edit Pivots</button>
+
+   <!-- Button to reset -->
+  <button id="desfazer-edicao" class="glass-button hidden" title="Reset">↩️ Undo</button>
+
+
 </div>
 
   <!-- Painel de dados da simulação -->
@@ -198,13 +205,43 @@
     <div id="lista-repetidoras" class="space-y-2 text-sm"></div>
   </div>
 
-  <!-- Título central no topo -->
-  <div class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 px-6 py-2 rounded-xl shadow-xl top-controls">
-    <h1 class="text-2xl font-bold text-green-400 text-center">📡 Beta Version</h1>
+  <div class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 px-3 py-[2px] rounded-lg shadow-xl top-controls">
+  <h1 class="text-lg font-bold text-green-400 text-center">📡 Beta Version</h1>
   </div>
 
+  <body class="bg-gray-900 text-white overflow-hidden">
+
+<!-- ✅ Seletor de Template no topo esquerdo -->
+<div class="absolute top-4 left-4 bg-black bg-opacity-50 px-3 py-1 rounded-lg shadow-xl flex items-center gap-2 z-[9999]">
+  <label for="template-modelo" class="text-sm text-white">🌐 Template:</label>
+  <select id="template-modelo" class="px-2 py-1 rounded bg-gray-800 text-white text-sm">
+    <option value="Brazil_V6">🇧🇷 Brazil</option>
+    <option value="Europe_V2">🇪🇺 Europe</option>
+  </select>
+</div>
+
+<!-- ✅ Bandeiras de idiomas logo abaixo -->
+<div class="absolute top-16 left-4 bg-black bg-opacity-50 px-3 py-1 rounded-lg shadow-xl flex items-center gap-3 z-[9999]">
+  <button class="hover:scale-110 transition" title="Português (BR)">
+    <img src="https://seusite.com/static/imagens/flags/br.svg" class="w-6 h-4" alt="Português">
+  </button>
+  <button class="hover:scale-110 transition" title="Español">
+    <img src="https://seusite.com/static/imagens/flags/es.svg" class="w-6 h-4" alt="Español">
+  </button>
+  <button class="hover:scale-110 transition" title="Deutsch">
+    <img src="https://seusite.com/static/imagens/flags/de.svg" class="w-6 h-4" alt="Deutsch">
+  </button>
+  <button class="hover:scale-110 transition" title="English">
+    <img src="https://seusite.com/static/imagens/flags/uk.svg" class="w-6 h-4" alt="English">
+  </button>
+  <button class="hover:scale-110 transition" title="Русский">
+    <img src="https://seusite.com/static/imagens/flags/ru.svg" class="w-6 h-4" alt="Russian">
+  </button>
+</div>
+
+
   <!-- Controles principais (formulário e botões) à esquerda -->
-  <div class="absolute top-20 left-4 flex flex-col gap-3 top-controls">
+  <div class="absolute top-28 left-4 flex flex-col gap-3 top-controls">
     <form id="formulario" enctype="multipart/form-data" class="flex flex-col gap-2">
       <label for="arquivo" class="glass-button w-56 cursor-pointer text-sm bg-white bg-opacity-5 hover:bg-opacity-10 text-center flex justify-center">
         <span class="truncate max-w-full" id="nome-arquivo">📂 Escolher arquivo</span>
@@ -225,6 +262,11 @@
 
 
     <button id="resetar-btn" class="glass-button bg-red-700 hover:bg-red-800 opacity-70 text-sm w-56">🔄 Resetar</button>
+
+
+    <body class="bg-gray-900 text-white overflow-hidden">
+
+
   </div>
 
   <!-- Mensagem temporária -->
@@ -267,7 +309,10 @@
 
 <script>
   // Inicializa o mapa centralizado no Brasil
-  const map = L.map('map').setView([-15, -55], 5);
+  const map = L.map('map', {
+  zoomControl: false
+  }).setView([-15, -55], 5);
+
 
   const visadaLayerGroup = L.layerGroup().addTo(map);
   let visadaVisivel = true;
@@ -308,6 +353,8 @@
   let legendasAtivas = true;
   let marcadoresLegenda = [];
   let marcadoresBombas = [];
+  let posicoesEditadas = {}; // ← salva as posições novas dos pivôs
+  let backupPosicoesPivos = {}; // ← reseta edições dos pivôs
 
   // Mostra mensagem temporária (verde ou vermelha)
   const mostrarMensagem = (texto, tipo = 'sucesso') => {
@@ -635,11 +682,31 @@ data.bombas.forEach(bomba => {
 
     mostrarLoader(true);
 
-    const res = await fetch("https://irricontrol-test.onrender.com/simular_sinal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(antenaGlobal)
+    // ✅ Aplica posições editadas antes de simular
+  if (Object.keys(posicoesEditadas).length > 0) {
+    Object.entries(posicoesEditadas).forEach(([nome, novaPos]) => {
+      if (pivotsMap[nome]) {
+        pivotsMap[nome].setLatLng(novaPos);
+      }
     });
+  }
+
+    // Prepara lista de pivôs com posições atualizadas
+const pivos_atuais = Object.entries(pivotsMap).map(([nome, marcador]) => {
+  const { lat, lng } = marcador.getLatLng();
+  return { nome, lat, lon: lng };
+});
+
+const payload = {
+  ...antenaGlobal,
+  pivos_atuais // ⬅️ envia os pivôs junto com a antena
+};
+
+const res = await fetch("https://irricontrol-test.onrender.com/simular_sinal", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload)
+  });
 
     const data = await res.json();
     mostrarLoader(false);
@@ -664,6 +731,8 @@ data.bombas.forEach(bomba => {
 
 
       map.fitBounds(bounds);
+      map.zoomOut(1); // <-- diminui um nível de zoom
+
 
       // Limpa pivôs anteriores do mapa
       marcadoresPivos.forEach(m => {
@@ -674,29 +743,34 @@ data.bombas.forEach(bomba => {
 
       // Redesenha pivôs com base no resultado da API
       data.pivos.forEach(pivo => {
-        const cor = pivo.fora ? 'red' : 'green';
+  const cor = pivo.fora ? 'red' : 'green';
 
-        const marcador = L.circleMarker([pivo.lat, pivo.lon], {
-          radius: 6,
-          color: cor,
-          fillColor: cor,
-          fillOpacity: 0.6,
-          className: pivo.fora ? 'circulo-futurista' : ''
-        }).addTo(map).bindPopup(
-          `<div class="popup-glass">${pivo.fora ? '❌' : '✅'} ${pivo.nome}</div>`
-        );
+  // 🛠️ Usa a posição editada se existir
+  const novaPos = posicoesEditadas[pivo.nome] || { lat: pivo.lat, lng: pivo.lon };
+
+  const marcador = L.circleMarker([novaPos.lat, novaPos.lng], {
+    radius: 6,
+    color: cor,
+    fillColor: cor,
+    fillOpacity: 0.6,
+    className: pivo.fora ? 'circulo-futurista' : ''
+  }).addTo(map).bindPopup(
+    `<div class="popup-glass">${pivo.fora ? '❌' : '✅'} ${pivo.nome}</div>`
+  );
+
 
         marcadoresPivos.push(marcador);
         pivotsMap[pivo.nome] = marcador;
 
-        const label = L.marker([pivo.lat, pivo.lon], {
-          icon: L.divIcon({
-            className: 'label-pivo',
-            html: pivo.nome,
-            iconSize: [60, 20],
-            iconAnchor: [25, -10]
-          })
-        }).addTo(map);
+        const label = L.marker([novaPos.lat, novaPos.lng], {
+  icon: L.divIcon({
+    className: 'label-pivo',
+    html: pivo.nome,
+    iconSize: [60, 20],
+    iconAnchor: [25, -10]
+  })
+}).addTo(map);
+
         marcadoresLegenda.push(label);
       });
 
@@ -756,21 +830,44 @@ data.bombas.forEach(bomba => {
     // Remove labels
     marcadoresLegenda.forEach(m => map.removeLayer(m));
 
+    // 🔥 Remove qualquer marcador de edição ativo
+    Object.values(pivotsMap).forEach(m => {
+    if (m.editMarker && map.hasLayer(m.editMarker)) {
+    map.removeLayer(m.editMarker);
+    }
+    });
+
+    // 🔥 Garante que todos editMarkers sejam anulados
+    Object.values(pivotsMap).forEach(m => {
+    delete m.editMarker;
+    });
+
+    // 🔧 Desativa modo edição se estiver ativo
+     modoEdicaoPivos = false;
+     const btnEditar = document.getElementById("editar-pivos");
+     btnEditar.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
+     btnEditar.textContent = "✏️ Edit Pivots";
+     document.getElementById("desfazer-edicao").classList.add("hidden");
+
+
     // Reseta variáveis globais
-    antenaGlobal = null;
-    marcadorAntena = null;
-    marcadorPosicionamento = null;
-    marcadoresPivos = [];
-    circulosPivos = [];
-    pivotsMap = {};
-    repetidoras = [];
-    contadorRepetidoras = 0;
-    idsDisponiveis = [];
-    coordenadaClicada = null;
-    marcadoresLegenda = [];
+        antenaGlobal = null;
+        marcadorAntena = null;
+        marcadorPosicionamento = null;
+        marcadoresPivos = [];
+        circulosPivos = [];
+        pivotsMap = {};
+        repetidoras = [];
+        contadorRepetidoras = 0;
+        idsDisponiveis = [];
+        coordenadaClicada = null;
+        marcadoresLegenda = [];
+        posicoesEditadas = {};
+
     if (typeof marcadoresBombas !== 'undefined') {
       marcadoresBombas = [];
     }
+
 
     // Esconde botões/painéis
     document.getElementById("simular-btn").classList.add("hidden");
@@ -793,7 +890,6 @@ data.bombas.forEach(bomba => {
     visadaLayerGroup.clearLayers();
     visadaVisivel = true;
     document.getElementById("btn-visada").classList.remove("opacity-50");
-
 
   });
 
@@ -1188,8 +1284,128 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
- }
+}
 
+let modoEdicaoPivos = false;
+
+document.getElementById("editar-pivos").addEventListener("click", () => {
+  modoEdicaoPivos = !modoEdicaoPivos;
+
+  const btn = document.getElementById("editar-pivos");
+  btn.textContent = modoEdicaoPivos ? "💾 Save Edits" : "✏️ Edit Pivots";
+
+  if (modoEdicaoPivos) {
+    btn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+    document.getElementById("desfazer-edicao").classList.remove("hidden");
+
+    // 🧠 Faz backup das posições antes de começar a edição
+    backupPosicoesPivos = {};
+    Object.entries(pivotsMap).forEach(([nome, marcador]) => {
+      backupPosicoesPivos[nome] = marcador.getLatLng();
+    });
+
+  } else {
+    btn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
+    document.getElementById("desfazer-edicao").classList.add("hidden");
+  }
+
+  // 🔧 Loop dos pivôs para ativar/desativar edição
+  Object.entries(pivotsMap).forEach(([nome, marcador]) => {
+    const label = marcadoresLegenda.find(lbl =>
+      lbl.getLatLng().equals(marcador.getLatLng()) && lbl._icon?.innerHTML.includes(nome)
+    );
+
+    if (modoEdicaoPivos) {
+      const markerEdit = L.marker(marcador.getLatLng(), {
+        draggable: true,
+        icon: L.divIcon({
+          className: 'label-pivo',
+          html: `🔴`,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        })
+      }).addTo(map);
+
+      marcador.editMarker = markerEdit;
+
+      markerEdit.on("drag", (e) => {
+        const novaPos = e.target.getLatLng();
+        if (label) label.setLatLng(novaPos);
+      });
+
+      markerEdit.on("dragend", (e) => {
+        const novaPos = e.target.getLatLng();
+        posicoesEditadas[nome] = novaPos;
+        if (label) label.setLatLng(novaPos);
+      });
+
+      // 🗑️ Clique direito para deletar pivô durante edição
+      markerEdit.on("contextmenu", () => {
+        map.removeLayer(markerEdit);       // remove editável
+        map.removeLayer(marcador);         // remove original
+        if (label) map.removeLayer(label); // remove nome
+
+        delete pivotsMap[nome];            // remove do mapa
+        delete posicoesEditadas[nome];     // remove da edição
+
+        mostrarMensagem(`🗑️ ${nome} removido`);
+      });
+
+      map.removeLayer(marcador); // oculta o original
+    } else {
+      if (marcador.editMarker) {
+        const novaPos = marcador.editMarker.getLatLng();
+        marcador.setLatLng(novaPos);
+        if (label) label.setLatLng(novaPos);
+        map.removeLayer(marcador.editMarker);
+        delete marcador.editMarker;
+        marcador.addTo(map);
+      }
+    }
+  });
+
+  if (!modoEdicaoPivos) {
+    mostrarMensagem("✅ Posições dos pivôs atualizadas.");
+  }
+});
+
+document.getElementById("desfazer-edicao").addEventListener("click", () => {
+  Object.entries(backupPosicoesPivos).forEach(([nome, posicaoOriginal]) => {
+    const marcador = pivotsMap[nome];
+
+    if (marcador) {
+      // Atualiza a posição do marcador existente
+      marcador.setLatLng(posicaoOriginal);
+    } else {
+      // Se o pivô foi deletado na edição, recria ele
+      const novoMarcador = L.circleMarker([posicaoOriginal.lat, posicaoOriginal.lng], {
+        radius: 6,
+        color: 'red',
+        fillColor: 'red',
+        fillOpacity: 0.6
+      }).addTo(map).bindPopup(`<div class="popup-glass">✅ ${nome}</div>`);
+
+      pivotsMap[nome] = novoMarcador;
+      marcadoresPivos.push(novoMarcador);
+
+      const label = L.marker([posicaoOriginal.lat, posicaoOriginal.lng], {
+        icon: L.divIcon({
+          className: 'label-pivo',
+          html: nome,
+          iconSize: [60, 20],
+          iconAnchor: [25, -10]
+        })
+      }).addTo(map);
+
+      marcadoresLegenda.push(label);
+    }
+  });
+
+  // Limpa as edições salvas
+  posicoesEditadas = {};
+
+  mostrarMensagem("↩️ Edição desfeita, pivôs restaurados.");
+});
 
 
 </script>
