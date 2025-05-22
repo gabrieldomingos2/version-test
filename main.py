@@ -33,6 +33,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 API_URL = "https://api.cloudrf.com/area"
 API_KEY = "35113-e181126d4af70994359d767890b3a4f2604eb0ef"
 
+# ⏳ Timeout global para todas as requisições HTTP
+HTTP_TIMEOUT = 60.0
+
+# 🔥 Cliente HTTP com timeout global
+def get_http_client():
+    return httpx.AsyncClient(timeout=httpx.Timeout(HTTP_TIMEOUT))
+
+
 # 🔧 Função auxiliar para normalizar nomes
 def normalizar_nome(nome):
     if not nome:
@@ -420,6 +428,7 @@ async def simular_sinal(antena: dict):
     print("🚀 Payload enviado:", json.dumps(payload, indent=2))
 
     headers = {"key": API_KEY, "Content-Type": "application/json"}
+    timeout = httpx.Timeout(60.0)  # 🔥 60 segundos
     async with httpx.AsyncClient() as client:
         resposta = await client.post(API_URL, headers=headers, json=payload)
 
@@ -459,7 +468,6 @@ async def simular_sinal(antena: dict):
         "status": "Simulação concluída",
         "pivos": pivos_com_status
     }
-
 
 
 @app.post("/simular_manual")
@@ -503,18 +511,17 @@ async def simular_manual(params: dict):
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
         "antenna": {
-        "mode": "template",
-        "txg": tpl["antenna"]["txg"],
-        "txl": 0,
-        "ant": 1,
-        "azi": 0,
-        "tlt": 0,
-        "hbw": 360,
-        "vbw": 90,
-        "fbr": tpl["antenna"]["fbr"],
-        "pol": "v"
+            "mode": "template",
+            "txg": tpl["antenna"]["txg"],
+            "txl": 0,
+            "ant": 1,
+            "azi": 0,
+            "tlt": 0,
+            "hbw": 360,
+            "vbw": 90,
+            "fbr": tpl["antenna"]["fbr"],
+            "pol": "v"
         },
-
         "model": {
             "pm": 1,
             "pe": 2,
@@ -547,7 +554,10 @@ async def simular_manual(params: dict):
     print("🚀 Payload enviado (manual):", json.dumps(payload, indent=2))
 
     headers = {"key": API_KEY, "Content-Type": "application/json"}
-    async with httpx.AsyncClient() as client:
+    timeout = httpx.Timeout(HTTP_TIMEOUT)
+
+    # 🔥 Faz requisição POST para gerar o sinal
+    async with get_http_client() as client:
         resposta = await client.post(API_URL, headers=headers, json=payload)
 
     if resposta.status_code != 200:
@@ -566,8 +576,8 @@ async def simular_manual(params: dict):
     nome_arquivo = f"repetidora_{tpl['id'].lower()}_{lat_str}_{lon_str}.png"
     caminho_local = f"static/imagens/{nome_arquivo}"
 
-    # 🔥 Salva imagem PNG
-    async with httpx.AsyncClient() as client:
+    # 🔥 Faz download da imagem PNG do sinal
+    async with get_http_client() as client:
         r = await client.get(imagem_url)
         with open(caminho_local, "wb") as f:
             f.write(r.content)
@@ -667,7 +677,9 @@ async def perfil_elevacao(req: dict):
     coords_param = "|".join([f"{lat},{lon}" for lat, lon in amostrados])
     url = f"https://api.opentopodata.org/v1/srtm90m?locations={coords_param}"
 
-    async with httpx.AsyncClient() as client:
+    timeout = httpx.Timeout(HTTP_TIMEOUT)
+
+    async with get_http_client() as client:
         resp = await client.get(url)
 
     dados = resp.json()
@@ -684,7 +696,7 @@ async def perfil_elevacao(req: dict):
     # 🔎 Detecta o ponto de maior elevação acima da linha de visada
     max_altura = -1
     bloqueio_real = None
-    idx_max = 1  # começa do segundo ponto pra evitar sobrepor antena
+    idx_max = 1
 
     for i in range(1, steps):
         elev = elevs[i]
@@ -701,7 +713,6 @@ async def perfil_elevacao(req: dict):
         if elev > elevs[idx_max]:
             idx_max = i
 
-    # Se houver um bloqueio real, use ele; senão, mostra o ponto mais alto como fallback visual
     bloqueio = bloqueio_real or {
         "lat": amostrados[idx_max][0],
         "lon": amostrados[idx_max][1],
