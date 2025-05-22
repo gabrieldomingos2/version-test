@@ -652,7 +652,6 @@ async def perfil_elevacao(req: dict):
 
     return {"bloqueio": bloqueio, "elevacao": elevs}
 
-
 from fastapi import Query
 
 @app.get("/exportar_kmz")
@@ -665,6 +664,13 @@ def exportar_kmz(
 
         caminho_imagem = f"static/imagens/{imagem}" if imagem else None
         caminho_bounds = f"static/imagens/{bounds_file}" if bounds_file else None
+
+        if caminho_imagem and not os.path.exists(caminho_imagem):
+            return {"erro": f"Imagem {imagem} não encontrada. Rode a simulação primeiro."}
+
+        if caminho_bounds and not os.path.exists(caminho_bounds):
+             return {"erro": f"Arquivo de bounds {bounds_file} não encontrado. Rode a simulação primeiro."}
+
 
         bounds = None
         if caminho_bounds and os.path.exists(caminho_bounds):
@@ -771,3 +777,19 @@ def exportar_kmz(
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
+    
+
+@app.get("/arquivos_imagens")
+def listar_arquivos_imagens():
+    try:
+        arquivos = os.listdir("static/imagens")
+        pngs = [arq for arq in arquivos if arq.endswith(".png")]
+        jsons = [arq for arq in arquivos if arq.endswith(".json")]
+        return {"pngs": pngs, "jsons": jsons}
+    except Exception as e:
+        return {"erro": str(e)}
+
+
+
+
+    
