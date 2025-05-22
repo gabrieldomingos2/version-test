@@ -175,6 +175,9 @@
   <!-- Button to toggle labels -->
   <button id="toggle-legenda" class="glass-button" title="Toggle labels">🏷️</button>
 
+  <!-- Botão para controle de opacidade -->
+  <button id="toggle-opacidade" class="glass-button" title="Controle de opacidade">🌫️</button>
+
    <!-- Button to edit pivots -->
   <button id="editar-pivos" class="glass-button" title="Edit pivot centers">✏️ Edit Pivots</button>
 
@@ -207,6 +210,14 @@
     <h2 class="text-lg font-bold mb-2 text-green-300">📍 Repetidoras</h2>
     <div id="lista-repetidoras" class="space-y-2 text-sm"></div>
   </div>
+
+  <!-- Painel opacidade -->
+  <div id="painel-opacidade" class="bg-black bg-opacity-60 p-3 rounded-xl shadow-xl w-56 hidden absolute right-4 top-[calc(20px+420px)] z-[9998]">
+  <h2 class="text-lg font-bold mb-2 text-green-300">🌫️ Opacidade</h2>
+  <input id="range-opacidade" type="range" min="0" max="1" step="0.1" value="1"
+    class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+ </div>
+
 
   <div class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 px-3 py-[2px] rounded-lg shadow-xl top-controls">
   <h1 class="text-lg font-bold text-green-400 text-center">📡 Beta Version</h1>
@@ -722,11 +733,12 @@ const res = await fetch("https://irricontrol-test.onrender.com/simular_sinal", {
       const [south, west, north, east] = data.bounds;
       const bounds = [[south, west], [north, east]];
 
-      // Remove overlay anterior
-      if (antenaGlobal.overlay) {
-        map.removeLayer(antenaGlobal.overlay);
-        reavaliarPivosSemCobertura();
-      }
+      // 🔥 Remove todos os overlays anteriores (imagem da antena e repetidoras)
+     overlaysVisiveis.forEach(o => {
+    if (map.hasLayer(o)) map.removeLayer(o);
+       });
+       overlaysVisiveis = [];
+
 
       // Adiciona nova imagem de sinal
       antenaGlobal.overlay = L.imageOverlay(
@@ -1334,13 +1346,23 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
 
 
   function baixarKMZ() {
-  const link = document.createElement("a");
-  link.href = "https://irricontrol-test.onrender.com/exportar_kmz"; // atualiza se necessário
-  link.download = `estudo-irricontrol.kmz`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  if (!antenaGlobal) {
+    mostrarMensagem("⚠️ Rode o estudo de sinal primeiro!", "erro");
+    return;
+  }
+
+  const latStr = antenaGlobal.lat.toFixed(6).replace('.', '_');
+  const lonStr = antenaGlobal.lon.toFixed(6).replace('.', '_');
+  const template = templateSelecionado.toLowerCase();
+
+  const nomeImagem = `sinal_${template}_${latStr}_${lonStr}.png`;
+  const nomeBounds = `sinal_${template}_${latStr}_${lonStr}.json`;
+
+  const url = `https://irricontrol-test.onrender.com/exportar_kmz?imagem=${nomeImagem}&bounds_file=${nomeBounds}`;
+
+  window.open(url, '_blank');
 }
+
 
 let modoEdicaoPivos = false;
 
@@ -1462,6 +1484,61 @@ document.getElementById("desfazer-edicao").addEventListener("click", () => {
 
   mostrarMensagem("↩️ Edição desfeita, pivôs restaurados.");
 });
+
+document.getElementById("toggle-opacidade").addEventListener("click", () => {
+  const painel = document.getElementById("painel-opacidade");
+  painel.classList.toggle("hidden");
+  reposicionarPaineisLaterais();
+});
+
+const rangeOpacidade = document.getElementById("range-opacidade");
+
+rangeOpacidade.addEventListener("input", () => {
+  const valor = parseFloat(rangeOpacidade.value);
+
+  // 🔥 Antena
+  if (antenaGlobal?.overlay) {
+    antenaGlobal.overlay.setOpacity(valor);
+  }
+
+  // 🔥 Repetidoras
+  repetidoras.forEach(rep => {
+    if (rep.overlay) {
+      rep.overlay.setOpacity(valor);
+    }
+  });
+});
+
+function reposicionarPaineisLaterais() {
+  const dados = document.getElementById("painel-dados");
+  const repetidoras = document.getElementById("painel-repetidoras");
+  const opacidade = document.getElementById("painel-opacidade");
+
+  const padding = 8;
+  const topoBase = 80;
+
+  let topoAtual = topoBase;
+
+  if (!dados.classList.contains("hidden")) {
+    dados.style.position = "absolute";
+    dados.style.right = "16px";
+    dados.style.top = `${topoAtual}px`;
+    topoAtual += dados.offsetHeight + padding;
+  }
+
+  if (!repetidoras.classList.contains("hidden")) {
+    repetidoras.style.position = "absolute";
+    repetidoras.style.right = "16px";
+    repetidoras.style.top = `${topoAtual}px`;
+    topoAtual += repetidoras.offsetHeight + padding;
+  }
+
+  if (!opacidade.classList.contains("hidden")) {
+    opacidade.style.position = "absolute";
+    opacidade.style.right = "16px";
+    opacidade.style.top = `${topoAtual}px`;
+  }
+}
 
 
 </script>

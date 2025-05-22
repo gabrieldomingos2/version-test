@@ -39,6 +39,10 @@ def normalizar_nome(nome):
         return ""
     return re.sub(r'[^a-z0-9]', '', nome.lower())
 
+# 🔧 Função padrão para formatar coordenadas em nomes de arquivos
+def format_coord(coord):
+    return f"{coord:.6f}".replace(".", "_").replace("-", "m")
+
 # 🔥 Templates disponíveis no sistema
 TEMPLATES_DISPONIVEIS = [
     {
@@ -46,14 +50,16 @@ TEMPLATES_DISPONIVEIS = [
         "nome": "🇧🇷 Brazil V6",
         "frq": 915,
         "col": "IRRICONTRO.dBm",
-        "site": "Brazil V6"
+        "site": "Brazil V6",
+        "rxs": -90   # Sensibilidade Brasil
     },
     {
         "id": "Europe_V6",
         "nome": "🇪🇺 Europe V6",
         "frq": 868,
         "col": "EUROPEIRRI.dBm",
-        "site": "Europe V6"
+        "site": "Europe V6",
+        "rxs": -100  # Sensibilidade Europa
     }
 ]
 
@@ -306,6 +312,11 @@ async def simular_sinal(antena: dict):
     except ValueError as e:
         return {"erro": str(e)}
 
+    # 🔥 Remove arquivos antigos de sinal da torre
+    for arquivo in os.listdir("static/imagens"):
+        if arquivo.startswith("sinal_"):
+            os.remove(os.path.join("static/imagens", arquivo))
+
     pivos_recebidos = antena.get("pivos_atuais", [])
 
     payload = {
@@ -324,7 +335,7 @@ async def simular_sinal(antena: dict):
             "powerUnit": "W"
         },
         "receiver": {
-            "lat": 0, "lon": 0, "alt": 3, "rxg": 3, "rxs": -90
+            "lat": antena["lat"], "lon": antena["lon"], "alt": antena.get("altura_receiver", 3), "rxg": 3, "rxs": tpl["rxs"]
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
         "antenna": {
@@ -362,8 +373,9 @@ async def simular_sinal(antena: dict):
         return {"erro": "Resposta inválida da API CloudRF", "dados": data}
 
     # 🔥 Nomes dos arquivos com base no template
-    lat_str = str(antena["lat"]).replace(".", "_")
-    lon_str = str(antena["lon"]).replace(".", "_")
+    lat_str = format_coord(antena["lat"])
+    lon_str = format_coord(antena["lon"])
+
     nome_arquivo = f"sinal_{tpl['id'].lower()}_{lat_str}_{lon_str}.png"
     caminho_local = f"static/imagens/{nome_arquivo}"
 
@@ -403,6 +415,11 @@ async def simular_manual(params: dict):
     except ValueError as e:
         return {"erro": str(e)}
 
+    # 🔥 Remove arquivos antigos de repetidoras
+    for arquivo in os.listdir("static/imagens"):
+        if arquivo.startswith("repetidora_"):
+            os.remove(os.path.join("static/imagens", arquivo))
+
     payload = {
         "version": "CloudRF-API-v3.24",
         "site": tpl["site"],
@@ -419,11 +436,11 @@ async def simular_manual(params: dict):
             "powerUnit": "W"
         },
         "receiver": {
-            "lat": 0,
-            "lon": 0,
+            "lat": params["lat"],
+            "lon": params["lon"],
             "alt": params.get("altura_receiver", 3),
             "rxg": 3,
-            "rxs": -90
+            "rxs": tpl["rxs"]
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
         "antenna": {
@@ -484,8 +501,8 @@ async def simular_manual(params: dict):
         return {"erro": "Resposta inválida da API CloudRF", "dados": data}
 
     # 🔥 Gera nome do arquivo com template + coordenadas
-    lat_str = f"{params['lat']:.5f}".replace(".", "_")
-    lon_str = f"{params['lon']:.5f}".replace(".", "_")
+    lat_str = format_coord(params["lat"])
+    lon_str = format_coord(params["lon"])
     nome_arquivo = f"repetidora_{tpl['id'].lower()}_{lat_str}_{lon_str}.png"
     caminho_local = f"static/imagens/{nome_arquivo}"
 
@@ -640,26 +657,28 @@ from fastapi import Query
 
 @app.get("/exportar_kmz")
 def exportar_kmz(
-    imagem: str = Query(..., description="Nome da imagem PNG principal, ex: sinal_brazil_v6_-22_4756_-46_9089.png"),
-    bounds_file: str = Query(..., description="Nome do JSON de bounds, ex: sinal_brazil_v6_-22_4756_-46_9089.json")
+    imagem: str = Query(None, description="Nome da imagem PNG principal, ex: sinal_brazil_v6_-22_4756_-46_9089.png"),
+    bounds_file: str = Query(None, description="Nome do JSON de bounds, ex: sinal_brazil_v6_-22_4756_-46_9089.json")
 ):
     try:
         antena, pivos, ciclos, _ = parse_kmz("arquivos/entrada.kmz")
 
-        caminho_imagem = f"static/imagens/{imagem}"
-        caminho_bounds = f"static/imagens/{bounds_file}"
+        caminho_imagem = f"static/imagens/{imagem}" if imagem else None
+        caminho_bounds = f"static/imagens/{bounds_file}" if bounds_file else None
 
-        if not antena or not pivos or not os.path.exists(caminho_imagem) or not os.path.exists(caminho_bounds):
-            return {"erro": "Dados insuficientes para exportar"}
+        bounds = None
+        if caminho_bounds and os.path.exists(caminho_bounds):
+            with open(caminho_bounds, "r") as f:
+                bounds_json = json.load(f)
+                bounds = bounds_json.get("bounds", bounds_json)
 
-        with open(caminho_bounds, "r") as f:
-            bounds = json.load(f)["bounds"] if "bounds" in json.load(f) else json.load(f)
+        if not antena or not pivos:
+            return {"erro": "Antena ou pivôs não encontrados no KMZ"}
 
         kml = simplekml.Kml()
 
         # 🗼 Torre principal
-        torre = kml.newpoint(name=antena["nome"], coords=[(antena["lon"], antena["lat"])]
-        )
+        torre = kml.newpoint(name=antena["nome"], coords=[(antena["lon"], antena["lat"])])
         torre.description = f"Torre principal\nAltura: {antena['altura']}m"
         torre.style.iconstyle.icon.href = "cloudrf.png"
         torre.style.iconstyle.scale = 1.5
@@ -679,14 +698,15 @@ def exportar_kmz(
             poligono.style.linestyle.color = "ff0000ff"
             poligono.style.linestyle.width = 4.0
 
-        # 🗺️ Overlay da torre principal
-        ground = kml.newgroundoverlay(name="Cobertura Principal")
-        ground.icon.href = imagem
-        ground.latlonbox.north = bounds[2]
-        ground.latlonbox.south = bounds[0]
-        ground.latlonbox.east = bounds[3]
-        ground.latlonbox.west = bounds[1]
-        ground.color = "88ffffff"
+        # 🗺️ Overlay da torre principal, se existir
+        if caminho_imagem and bounds and os.path.exists(caminho_imagem):
+            ground = kml.newgroundoverlay(name="Cobertura Principal")
+            ground.icon.href = imagem
+            ground.latlonbox.north = bounds[2]
+            ground.latlonbox.south = bounds[0]
+            ground.latlonbox.east = bounds[3]
+            ground.latlonbox.west = bounds[1]
+            ground.color = "88ffffff"
 
         # 🔥 Adiciona overlays das repetidoras
         arquivos_overlay = os.listdir("static/imagens")
@@ -703,7 +723,7 @@ def exportar_kmz(
 
                 try:
                     with open(caminho_rep_json, "r") as f:
-                        bounds_rep = json.load(f)["bounds"] if "bounds" in json.load(f) else json.load(f)
+                        bounds_rep = json.load(f).get("bounds", json.load(f))
                 except Exception as e:
                     print(f"⚠️ Erro ao ler bounds de {nome_arquivo}: {e}")
                     continue
@@ -736,7 +756,8 @@ def exportar_kmz(
 
         with zipfile.ZipFile(caminho_kmz_zip, "w") as kmz:
             kmz.write(caminho_kml, "estudo.kml")
-            kmz.write(caminho_imagem, imagem)
+            if caminho_imagem and os.path.exists(caminho_imagem):
+                kmz.write(caminho_imagem, imagem)
             kmz.write("static/imagens/cloudrf.png", "cloudrf.png")
 
             for arquivo, nome_destino in repetidoras_adicionadas:
@@ -750,4 +771,3 @@ def exportar_kmz(
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
-
