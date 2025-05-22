@@ -64,7 +64,7 @@ TEMPLATES_DISPONIVEIS = [
         "id": "Europe_V6_XR",
         "nome": "🇪🇺 Europe V6 XR",
         "frq": 868,
-        "col": "EUROPEIRRI.dBm",
+        "col": "IRRIEUROPE.dBm",
         "site": "V6_XR.dBm",
         "rxs": -110,
         "receiver": {
@@ -72,7 +72,7 @@ TEMPLATES_DISPONIVEIS = [
             "lon": 1.45,
             "alt": 3,
             "rxg": 2.1,
-            "rxs": -110
+            "rxs": -105
         }
     }
 ]
