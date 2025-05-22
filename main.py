@@ -66,7 +66,7 @@ TEMPLATES_DISPONIVEIS = [
         "frq": 868,
         "col": "IRRIEUROPE.dBm",
         "site": "V6_XR.dBm",
-        "rxs": -110,
+        "rxs": -105,
         "receiver": {
             "lat": 38.913,
             "lon": 1.45,
