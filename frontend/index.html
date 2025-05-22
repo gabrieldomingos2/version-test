@@ -226,24 +226,23 @@
   <body class="bg-gray-900 text-white overflow-hidden">
 
 <!-- ✅ Bandeiras de idiomas no topo -->
-<div id="bandeiras-idioma" class="absolute top-4 left-4 bg-black bg-opacity-50 px-7 py-1 rounded-lg shadow-xl flex items-center gap-3 z-[9999]">
-  <button onclick="mudarIdioma('pt')" id="btn-pt" class="hover:scale-110 transition">
+<div class="absolute top-4 left-4 bg-black bg-opacity-50 px-7 py-1 rounded-lg shadow-xl flex items-center gap-3 z-[9999]">
+  <button class="hover:scale-110 transition" title="Português (BR)">
     <img src="https://irricontrol-test.onrender.com/static/imagens/br.svg" class="w-6 h-4" alt="Português">
   </button>
-  <button onclick="mudarIdioma('es')" id="btn-es" class="hover:scale-110 transition">
+  <button class="hover:scale-110 transition" title="Español">
     <img src="https://irricontrol-test.onrender.com/static/imagens/es.svg" class="w-6 h-4" alt="Español">
   </button>
-  <button onclick="mudarIdioma('de')" id="btn-de" class="hover:scale-110 transition">
+  <button class="hover:scale-110 transition" title="Deutsch">
     <img src="https://irricontrol-test.onrender.com/static/imagens/de.svg" class="w-6 h-4" alt="Deutsch">
   </button>
-  <button onclick="mudarIdioma('en')" id="btn-en" class="hover:scale-110 transition">
+  <button class="hover:scale-110 transition" title="English">
     <img src="https://irricontrol-test.onrender.com/static/imagens/uk.svg" class="w-6 h-4" alt="English">
   </button>
-  <button onclick="mudarIdioma('ru')" id="btn-ru" class="hover:scale-110 transition">
+  <button class="hover:scale-110 transition" title="Русский">
     <img src="https://irricontrol-test.onrender.com/static/imagens/ru.svg" class="w-6 h-4" alt="Russian">
   </button>
 </div>
-
 
 <!-- ✅ Seletor de Template logo abaixo das bandeiras -->
 <div class="absolute top-12 left-4 bg-black bg-opacity-50 px-5 py-1 rounded-lg shadow-xl flex items-center gap-2 z-[9999]">
@@ -370,157 +369,6 @@
   let posicoesEditadas = {}; // ← salva as posições novas dos pivôs
   let backupPosicoesPivos = {}; // ← reseta edições dos pivôs
   let templateSelecionado = "";
-  let idiomaSelecionado = localStorage.getItem('idiomaSelecionado') || 'pt';
-
-  const traducoes = {
-  pt: {
-    escolherArquivo: "📂 Escolher arquivo",
-    carregarKMZ: "📁 Carregar KMZ",
-    rodarEstudo: "📶 Rodar Estudo de Sinal",
-    diagnostico: "📈 Diagnóstico de Visada",
-    exportar: "📥 Exportar KMZ",
-    resetar: "🔄 Resetar",
-    editarPivos: "✏️ Editar Pivôs",
-    salvarPivos: "💾 Salvar Edição",
-    desfazer: "↩️ Desfazer",
-    painelDados: "📊 Dados da Simulação",
-    painelRepetidoras: "📍 Repetidoras",
-    painelOpacidade: "🌫️ Opacidade",
-    template: "🌐 Template:",
-    foraDaCobertura: "Fora da cobertura",
-    pivos: "Pivôs",
-    antena: "Antena principal",
-    receiver: "Receiver",
-    totalRepetidoras: "Total Repetidoras",
-    casasBomba: "Casas de bomba",
-    processamento: "Processando...",
-    beta: "📡 Beta Version",
-    copiar: "Copiar"
-  },
-  en: {
-    escolherArquivo: "📂 Choose File",
-    carregarKMZ: "📁 Upload KMZ",
-    rodarEstudo: "📶 Run Signal Study",
-    diagnostico: "📈 Line of Sight Diagnosis",
-    exportar: "📥 Export KMZ",
-    resetar: "🔄 Reset",
-    editarPivos: "✏️ Edit Pivots",
-    salvarPivos: "💾 Save Edits",
-    desfazer: "↩️ Undo",
-    painelDados: "📊 Simulation Data",
-    painelRepetidoras: "📍 Repeaters",
-    painelOpacidade: "🌫️ Opacity",
-    template: "🌐 Template:",
-    foraDaCobertura: "Out of Coverage",
-    pivos: "Pivots",
-    antena: "Main Antenna",
-    receiver: "Receiver",
-    totalRepetidoras: "Total Repeaters",
-    casasBomba: "Pump Houses",
-    processamento: "Processing...",
-    beta: "📡 Beta Version",
-    copiar: "Copy"
-  },
-  es: {
-    escolherArquivo: "📂 Elegir archivo",
-    carregarKMZ: "📁 Cargar KMZ",
-    rodarEstudo: "📶 Ejecutar Estudio de Señal",
-    diagnostico: "📈 Diagnóstico de Visada",
-    exportar: "📥 Exportar KMZ",
-    resetar: "🔄 Reiniciar",
-    editarPivos: "✏️ Editar Pivotes",
-    salvarPivos: "💾 Guardar Edición",
-    desfazer: "↩️ Deshacer",
-    painelDados: "📊 Datos de Simulación",
-    painelRepetidoras: "📍 Repetidores",
-    painelOpacidade: "🌫️ Opacidad",
-    template: "🌐 Plantilla:",
-    foraDaCobertura: "Fuera de Cobertura",
-    pivos: "Pivotes",
-    antena: "Antena Principal",
-    receiver: "Receiver",
-    totalRepetidoras: "Total Repetidores",
-    casasBomba: "Casas de Bomba",
-    processamento: "Procesando...",
-    beta: "📡 Versión Beta",
-    copiar: "Copiar"
-  },
-  de: {
-    escolherArquivo: "📂 Datei wählen",
-    carregarKMZ: "📁 KMZ laden",
-    rodarEstudo: "📶 Signalstudie starten",
-    diagnostico: "📈 Sichtliniendiagnose",
-    exportar: "📥 KMZ exportieren",
-    resetar: "🔄 Zurücksetzen",
-    editarPivos: "✏️ Pivot bearbeiten",
-    salvarPivos: "💾 Bearbeitung speichern",
-    desfazer: "↩️ Rückgängig",
-    painelDados: "📊 Simulationsdaten",
-    painelRepetidoras: "📍 Repeater",
-    painelOpacidade: "🌫️ Deckkraft",
-    template: "🌐 Vorlage:",
-    foraDaCobertura: "Außer Reichweite",
-    pivos: "Pivotpunkte",
-    antena: "Hauptantenne",
-    receiver: "Empfänger",
-    totalRepetidoras: "Repeater gesamt",
-    casasBomba: "Pumpstationen",
-    processamento: "Verarbeitung...",
-    beta: "📡 Beta Version",
-    copiar: "Kopieren"
-  },
-  ru: {
-    escolherArquivo: "📂 Выбрать файл",
-    carregarKMZ: "📁 Загрузить KMZ",
-    rodarEstudo: "📶 Запустить исследование сигнала",
-    diagnostico: "📈 Диагностика видимости",
-    exportar: "📥 Экспорт KMZ",
-    resetar: "🔄 Сбросить",
-    editarPivos: "✏️ Редактировать точки",
-    salvarPivos: "💾 Сохранить изменения",
-    desfazer: "↩️ Отменить",
-    painelDados: "📊 Данные симуляции",
-    painelRepetidoras: "📍 Репитеры",
-    painelOpacidade: "🌫️ Прозрачность",
-    template: "🌐 Шаблон:",
-    foraDaCobertura: "Вне покрытия",
-    pivos: "Точки",
-    antena: "Главная антенна",
-    receiver: "Приемник",
-    totalRepetidoras: "Всего репитеров",
-    casasBomba: "Насосные станции",
-    processamento: "Обработка...",
-    beta: "📡 Бета версия",
-    copiar: "Копировать"
-  }
-};
-
-function traduzirTela() {
-  const t = traducoes[idiomaSelecionado];
-
-  document.getElementById("nome-arquivo").textContent = t.escolherArquivo;
-  document.querySelector('button[type="submit"]').textContent = t.carregarKMZ;
-  document.getElementById("simular-btn").textContent = t.rodarEstudo;
-  document.getElementById("btn-diagnostico").textContent = t.diagnostico;
-  document.getElementById("resetar-btn").textContent = t.resetar;
-  document.querySelector('button[onclick="baixarKMZ()"]').textContent = t.exportar;
-  document.getElementById("editar-pivos").textContent = modoEdicaoPivos ? t.salvarPivos : t.editarPivos;
-  document.getElementById("desfazer-edicao").textContent = t.desfazer;
-
-  document.querySelector('#painel-dados h2').textContent = t.painelDados;
-  document.querySelector('#painel-repetidoras h2').textContent = t.painelRepetidoras;
-  document.querySelector('#painel-opacidade h2').textContent = t.painelOpacidade;
-  document.querySelector('label[for="template-modelo"]').textContent = t.template;
-
-  document.getElementById("template-info").textContent = `${t.template} ${templateSelecionado}`;
-
-  document.querySelector('#toggle-painel').setAttribute('title', t.painelDados);
-  document.querySelector('#toggle-repetidoras').setAttribute('title', t.painelRepetidoras);
-  document.querySelector('#toggle-opacidade').setAttribute('title', t.painelOpacidade);
-  document.querySelector('#btn-visada').setAttribute('title', t.diagnostico);
-  document.querySelector('#toggle-legenda').setAttribute('title', 'Toggle Labels');
-  document.getElementById('painel-dados').querySelector('button').textContent = t.copiar;
-}
 
   // Mostra mensagem temporária (verde ou vermelha)
   const mostrarMensagem = (texto, tipo = 'sucesso') => {
@@ -1695,44 +1543,6 @@ function reposicionarPaineisLaterais() {
     opacidade.style.top = `${topoAtual}px`;
   }
 }
-
-if (!localStorage.getItem('idiomaSelecionado')) {
-  const lang = navigator.language.slice(0, 2);
-  if (['pt', 'es', 'en', 'de', 'ru'].includes(lang)) {
-    idiomaSelecionado = lang;
-  } else {
-    idiomaSelecionado = 'en';
-  }
-  localStorage.setItem('idiomaSelecionado', idiomaSelecionado);
-}
-
-
-function mudarIdioma(idioma) {
-  idiomaSelecionado = idioma;
-  localStorage.setItem('idiomaSelecionado', idioma);
-  atualizarBandeirasAtivas();
-  traduzirTela();
-  mostrarMensagem(`🌍 Idioma: ${idioma.toUpperCase()}`);
-}
-
-
-function atualizarBandeirasAtivas() {
-  const idiomas = ['pt', 'es', 'de', 'en', 'ru'];
-  idiomas.forEach(id => {
-    const btn = document.getElementById(`btn-${id}`);
-    if (id === idiomaSelecionado) {
-      btn.classList.add('ring-2', 'ring-green-400', 'scale-110');
-    } else {
-      btn.classList.remove('ring-2', 'ring-green-400', 'scale-110');
-    }
-  });
-}
-
-// 🔥 Inicializa estado ao carregar a página
-document.addEventListener("DOMContentLoaded", () => {
-  atualizarBandeirasAtivas();
-});
-
 
 </script>
 </body>

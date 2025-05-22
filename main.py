@@ -656,48 +656,32 @@ from fastapi import Query
 
 @app.get("/exportar_kmz")
 def exportar_kmz(
-    imagem: str = Query(None, description="Nome da imagem PNG, ex: sinal_brazil_v6.png"),
-    bounds_file: str = Query(None, description="JSON de bounds, ex: sinal_brazil_v6.json")
+    imagem: str = Query(None, description="Nome da imagem PNG principal, ex: sinal_brazil_v6_-22_4756_-46_9089.png"),
+    bounds_file: str = Query(None, description="Nome do JSON de bounds, ex: sinal_brazil_v6_-22_4756_-46_9089.json")
 ):
     try:
         antena, pivos, ciclos, _ = parse_kmz("arquivos/entrada.kmz")
-
-        if not antena or not pivos:
-            return {"erro": "Antena ou pivôs não encontrados no KMZ."}
 
         caminho_imagem = f"static/imagens/{imagem}" if imagem else None
         caminho_bounds = f"static/imagens/{bounds_file}" if bounds_file else None
 
         if caminho_imagem and not os.path.exists(caminho_imagem):
-            return {"erro": f"Imagem {imagem} não encontrada."}
+            return {"erro": f"Imagem {imagem} não encontrada. Rode a simulação primeiro."}
+
         if caminho_bounds and not os.path.exists(caminho_bounds):
-            return {"erro": f"Bounds {bounds_file} não encontrado."}
+             return {"erro": f"Arquivo de bounds {bounds_file} não encontrado. Rode a simulação primeiro."}
 
-        with open(caminho_bounds, "r") as f:
-            bounds = json.load(f).get("bounds")
 
-        if not bounds:
-            return {"erro": "Bounds inválido."}
+        bounds = None
+        if caminho_bounds and os.path.exists(caminho_bounds):
+            with open(caminho_bounds, "r") as f:
+                bounds_json = json.load(f)
+                bounds = bounds_json.get("bounds", bounds_json)
+
+        if not antena or not pivos:
+            return {"erro": "Antena ou pivôs não encontrados no KMZ"}
 
         kml = simplekml.Kml()
-
-        # 🗺️ Primeiro → Ground Overlay da cobertura principal (FICA NO FUNDO)
-        if caminho_imagem:
-            ground = kml.newgroundoverlay(name="Cobertura Principal")
-            ground.icon.href = imagem
-            ground.latlonbox.north = bounds[2]
-            ground.latlonbox.south = bounds[0]
-            ground.latlonbox.east = bounds[3]
-            ground.latlonbox.west = bounds[1]
-            ground.color = "CCffffff"  # Transparente suave
-
-        # 🔵 Círculos dos pivôs (FICA EM CIMA DO PNG)
-        for ciclo in ciclos:
-            pol = kml.newpolygon(name=ciclo["nome"])
-            pol.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
-            pol.style.polystyle.color = "00000000"  # Sem preenchimento
-            pol.style.linestyle.color = "ff0000ff"  # Azul forte
-            pol.style.linestyle.width = 4
 
         # 🗼 Torre principal
         torre = kml.newpoint(name=antena["nome"], coords=[(antena["lon"], antena["lat"])])
@@ -712,42 +696,64 @@ def exportar_kmz(
             ponto.style.iconstyle.color = "ffffffff"
             ponto.style.iconstyle.scale = 1.4
 
-        # 🔥 Overlays de repetidoras
-        repetidoras = []
-        for nome in os.listdir("static/imagens"):
-            if nome.startswith("repetidora_") and nome.endswith(".png"):
-                img_path = f"static/imagens/{nome}"
-                json_path = img_path.replace(".png", ".json")
+        # 🔵 Círculos dos pivôs
+        for ciclo in ciclos:
+            poligono = kml.newpolygon(name=ciclo["nome"])
+            poligono.outerboundaryis = [(lon, lat) for lat, lon in ciclo["coordenadas"]]
+            poligono.style.polystyle.color = "00000000"
+            poligono.style.linestyle.color = "ff0000ff"
+            poligono.style.linestyle.width = 4.0
 
-                if not os.path.exists(json_path):
+        # 🗺️ Overlay da torre principal, se existir
+        if caminho_imagem and bounds and os.path.exists(caminho_imagem):
+            ground = kml.newgroundoverlay(name="Cobertura Principal")
+            ground.icon.href = imagem
+            ground.latlonbox.north = bounds[2]
+            ground.latlonbox.south = bounds[0]
+            ground.latlonbox.east = bounds[3]
+            ground.latlonbox.west = bounds[1]
+            ground.color = "88ffffff"
+
+        # 🔥 Adiciona overlays das repetidoras
+        arquivos_overlay = os.listdir("static/imagens")
+        repetidoras_adicionadas = []
+
+        for nome_arquivo in arquivos_overlay:
+            if nome_arquivo.startswith("repetidora_") and nome_arquivo.endswith(".png"):
+                caminho_rep_imagem = os.path.join("static/imagens", nome_arquivo)
+                caminho_rep_json = caminho_rep_imagem.replace(".png", ".json")
+
+                if not os.path.exists(caminho_rep_json):
+                    print(f"⚠️ JSON de bounds não encontrado para {nome_arquivo}")
                     continue
 
-                with open(json_path) as f:
-                    b = json.load(f).get("bounds")
-
-                if not b:
+                try:
+                    with open(caminho_rep_json, "r") as f:
+                        bounds_rep = json.load(f).get("bounds", json.load(f))
+                except Exception as e:
+                    print(f"⚠️ Erro ao ler bounds de {nome_arquivo}: {e}")
                     continue
 
-                overlay = kml.newgroundoverlay(name=f"Repetidora {nome}")
-                overlay.icon.href = nome
-                overlay.latlonbox.south = b[0]
-                overlay.latlonbox.west = b[1]
-                overlay.latlonbox.north = b[2]
-                overlay.latlonbox.east = b[3]
-                overlay.color = "CCffffff"
+                overlay = kml.newgroundoverlay(name=f"Overlay {nome_arquivo}")
+                overlay.icon.href = nome_arquivo
+                overlay.latlonbox.south = bounds_rep[0]
+                overlay.latlonbox.west = bounds_rep[1]
+                overlay.latlonbox.north = bounds_rep[2]
+                overlay.latlonbox.east = bounds_rep[3]
+                overlay.color = "77ffffff"
 
-                lat_centro = (b[0] + b[2]) / 2
-                lon_centro = (b[1] + b[3]) / 2
+                lat_centro = (bounds_rep[0] + bounds_rep[2]) / 2
+                lon_centro = (bounds_rep[1] + bounds_rep[3]) / 2
 
                 ponto = kml.newpoint(name="Repetidora", coords=[(lon_centro, lat_centro)])
                 ponto.description = f"Repetidora em {lat_centro:.5f}, {lon_centro:.5f}"
                 ponto.style.iconstyle.icon.href = "cloudrf.png"
                 ponto.style.iconstyle.scale = 1.2
 
-                repetidoras.append((img_path, nome))
-                repetidoras.append((json_path, nome.replace(".png", ".json")))
+                repetidoras_adicionadas.append((caminho_rep_imagem, nome_arquivo))
+                repetidoras_adicionadas.append((caminho_rep_json, nome_arquivo.replace(".png", ".json")))
 
-        # 📦 Monta KMZ
+        # 📦 Monta o arquivo KMZ
         caminho_kml = "arquivos/estudo.kml"
         kml.save(caminho_kml)
 
@@ -756,12 +762,12 @@ def exportar_kmz(
 
         with zipfile.ZipFile(caminho_kmz_zip, "w") as kmz:
             kmz.write(caminho_kml, "estudo.kml")
-            if caminho_imagem:
+            if caminho_imagem and os.path.exists(caminho_imagem):
                 kmz.write(caminho_imagem, imagem)
             kmz.write("static/imagens/cloudrf.png", "cloudrf.png")
 
-            for arq, nome_dest in repetidoras:
-                kmz.write(arq, nome_dest)
+            for arquivo, nome_destino in repetidoras_adicionadas:
+                kmz.write(arquivo, nome_destino)
 
         return FileResponse(
             caminho_kmz_zip,
@@ -771,7 +777,6 @@ def exportar_kmz(
 
     except Exception as e:
         return {"erro": f"Erro ao exportar KMZ: {str(e)}"}
-
     
 
 @app.get("/arquivos_imagens")
@@ -783,22 +788,3 @@ def listar_arquivos_imagens():
         return {"pngs": pngs, "jsons": jsons}
     except Exception as e:
         return {"erro": str(e)}
-
-
-
-
-from fastapi import FastAPI, UploadFile, File
-from traducoes import t
-
-app = FastAPI()
-
-@app.post("/processar_kmz")
-async def processar_kmz(file: UploadFile = File(...), lang: str = "pt"):
-    try:
-        print("📥 Processando KMZ...")
-
-        # 🔥 Sucesso
-        return {"mensagem": t("sucesso", lang)}
-
-    except Exception as e:
-        return {"erro": f"{t('erro_kmz', lang)} {str(e)}"}
