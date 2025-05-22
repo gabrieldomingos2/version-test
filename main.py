@@ -137,7 +137,7 @@ def parse_kmz(caminho_kmz):
                 for placemark in root.findall(".//kml:Placemark", ns):
                     nome = placemark.find("kml:name", ns)
                     ponto = placemark.find(".//kml:Point/kml:coordinates", ns)
-                    
+
                     if nome is not None and ponto is not None:
                         nome_texto = nome.text.lower()
                         coords = ponto.text.strip().split(",")
@@ -207,36 +207,33 @@ def parse_kmz(caminho_kmz):
 
         try:
             coords_lonlat = [(lon, lat) for lat, lon in coords]
+            num_pontos = len(coords_lonlat)
 
-            # Detecta as duas extremidades mais distantes
-            max_dist = 0
-            ponto_a = coords_lonlat[0]
-            ponto_b = coords_lonlat[1]
-            for i in range(len(coords_lonlat)):
-                for j in range(i + 1, len(coords_lonlat)):
-                    dist = ((coords_lonlat[i][0] - coords_lonlat[j][0]) ** 2 +
-                            (coords_lonlat[i][1] - coords_lonlat[j][1]) ** 2) ** 0.5
-                    if dist > max_dist:
-                        max_dist = dist
-                        ponto_a = coords_lonlat[i]
-                        ponto_b = coords_lonlat[j]
-
-            if max_dist > 0.001:
+            if num_pontos == 2:
+                ponto_a, ponto_b = coords_lonlat
                 centro_lon = (ponto_a[0] + ponto_b[0]) / 2
                 centro_lat = (ponto_a[1] + ponto_b[1]) / 2
-            else:
+
+            elif num_pontos == 3:
+                centro_lon = mean([p[0] for p in coords_lonlat])
+                centro_lat = mean([p[1] for p in coords_lonlat])
+
+            elif num_pontos > 3:
                 poligono = Polygon(coords_lonlat)
                 centroide = poligono.centroid
                 centro_lat = centroide.y
                 centro_lon = centroide.x
 
+            else:
+                centro_lat = mean([lat for lat, lon in coords])
+                centro_lon = mean([lon for lat, lon in coords])
+
         except Exception as e:
             print("⚠️ Erro no centroide, fallback para média:", e)
-            lats = [lat for lat, lon in coords]
-            lons = [lon for lat, lon in coords]
-            centro_lat = mean(lats)
-            centro_lon = mean(lons)
+            centro_lat = mean([lat for lat, lon in coords])
+            centro_lon = mean([lon for lat, lon in coords])
 
+        # 🛑 Checa se já existe um pivô ali
         distancia_minima = 0.0002
         existe_placemark = any(
             normalizar_nome(p["nome"]) == nome_normalizado or
