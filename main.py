@@ -788,8 +788,3 @@ def listar_arquivos_imagens():
         return {"pngs": pngs, "jsons": jsons}
     except Exception as e:
         return {"erro": str(e)}
-
-
-
-
-    

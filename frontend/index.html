@@ -1345,14 +1345,18 @@ if (!antenaGlobal?.overlay || !Object.keys(pivotsMap).length) {
   });
 
 
-  function baixarKMZ() {
+  function formatCoord(coord) {
+  return coord.toFixed(6).replace('.', '_').replace('-', 'm');
+}
+
+function baixarKMZ() {
   if (!antenaGlobal) {
     mostrarMensagem("⚠️ Rode o estudo de sinal primeiro!", "erro");
     return;
   }
 
-  const latStr = antenaGlobal.lat.toFixed(6).replace('.', '_');
-  const lonStr = antenaGlobal.lon.toFixed(6).replace('.', '_');
+  const latStr = formatCoord(antenaGlobal.lat);
+  const lonStr = formatCoord(antenaGlobal.lon);
   const template = templateSelecionado.toLowerCase();
 
   const nomeImagem = `sinal_${template}_${latStr}_${lonStr}.png`;
@@ -1539,7 +1543,6 @@ function reposicionarPaineisLaterais() {
     opacidade.style.top = `${topoAtual}px`;
   }
 }
-
 
 </script>
 </body>
