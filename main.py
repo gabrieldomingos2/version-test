@@ -365,24 +365,55 @@ async def simular_sinal(antena: dict):
             "powerUnit": "W"
         },
         "receiver": {
-            "lat": tpl["receiver"]["lat"], "lon": tpl["receiver"]["lon"], "alt": tpl["receiver"]["alt"], "rxg": tpl["receiver"]["rxg"], "rxs": tpl["receiver"]["rxs"]
+            "lat": tpl["receiver"]["lat"],
+            "lon": tpl["receiver"]["lon"],
+            "alt": tpl["receiver"]["alt"],
+            "rxg": tpl["receiver"]["rxg"],
+            "rxs": tpl["receiver"]["rxs"]
         },
-        "feeder": {"flt": 1, "fll": 0, "fcc": 0},
+        "feeder": {
+            "flt": 1,
+            "fll": 0,
+            "fcc": 0
+        },
         "antenna": {
-            "mode": "template", tpl["antenna"]["txg"], "txl": 0, "ant": 1,
-            "azi": 0, "tlt": 0, "hbw": 360, "vbw": 90, tpl["antenna"]["fbr"], "pol": "v"
+            "mode": "template",
+            "txg": tpl["antenna"]["txg"],
+            "txl": 0,
+            "ant": 1,
+            "azi": 0,
+            "tlt": 0,
+            "hbw": 360,
+            "vbw": 90,
+            "fbr": tpl["antenna"]["fbr"],
+            "pol": "v"
         },
         "model": {
-            "pm": 1, "pe": 2, "ked": 4, "rel": 95,
-            "rcs": 1, "month": 4, "hour": 12, "sunspots_r12": 100
+            "pm": 1,
+            "pe": 2,
+            "ked": 4,
+            "rel": 95,
+            "rcs": 1,
+            "month": 4,
+            "hour": 12,
+            "sunspots_r12": 100
         },
         "environment": {
-            "elevation": 1, "landcover": 1, "buildings": 0,
-            "obstacles": 0, "clt": "Minimal.clt"
+            "elevation": 1,
+            "landcover": 1,
+            "buildings": 0,
+            "obstacles": 0,
+            "clt": "Minimal.clt"
         },
         "output": {
-            "units": "m", "col": tpl["col"], "out": 2,
-            "ber": 1, "mod": 7, "nf": -120, "res": 30, "rad": 10
+            "units": "m",
+            "col": tpl["col"],
+            "out": 2,
+            "ber": 1,
+            "mod": 7,
+            "nf": -120,
+            "res": 30,
+            "rad": 10
         }
     }
 
@@ -402,13 +433,11 @@ async def simular_sinal(antena: dict):
     if not imagem_url or not bounds:
         return {"erro": "Resposta inválida da API CloudRF", "dados": data}
 
-    # 🔥 Nomes dos arquivos com base no template
+    # 🔥 Nomes dos arquivos com base no template e coordenadas
     lat_str = format_coord(antena["lat"])
     lon_str = format_coord(antena["lon"])
-
     nome_arquivo = f"sinal_{tpl['id'].lower()}_{lat_str}_{lon_str}.png"
     caminho_local = f"static/imagens/{nome_arquivo}"
-
 
     # 🔥 Salva imagem PNG
     async with httpx.AsyncClient() as client:
@@ -421,7 +450,6 @@ async def simular_sinal(antena: dict):
     with open(json_bounds_path, "w") as f:
         json.dump({"bounds": bounds}, f)
 
-
     # 🔎 Detecta pivôs fora da cobertura
     pivos_com_status = detectar_pivos_fora(bounds, pivos_recebidos, caminho_imagem=caminho_local)
 
@@ -431,6 +459,7 @@ async def simular_sinal(antena: dict):
         "status": "Simulação concluída",
         "pivos": pivos_com_status
     }
+
 
 
 @app.post("/simular_manual")
