@@ -258,6 +258,7 @@ def parse_kmz(caminho_kmz):
 
     return antena, pivos, ciclos, bombas
 
+
 def detectar_pivos_fora(bounds, pivos, caminho_imagem="static/imagens/sinal.png", pivos_existentes=[]):
     
     try:
@@ -425,7 +426,8 @@ async def simular_sinal(antena: dict):
     print("🚀 Payload enviado:", json.dumps(payload, indent=2))
 
     headers = {"key": API_KEY, "Content-Type": "application/json"}
-    timeout = httpx.Timeout(60.0)  # 🔥 60 segundos
+    timeout = httpx.Timeout(60.0)
+
     async with httpx.AsyncClient() as client:
         resposta = await client.post(API_URL, headers=headers, json=payload)
 
@@ -439,19 +441,37 @@ async def simular_sinal(antena: dict):
     if not imagem_url or not bounds:
         return {"erro": "Resposta inválida da API CloudRF", "dados": data}
 
-    # 🔥 Nomes dos arquivos com base no template e coordenadas
+    # 🔥 Nomes dos arquivos
     lat_str = format_coord(antena["lat"])
     lon_str = format_coord(antena["lon"])
     nome_arquivo = f"sinal_{tpl['id'].lower()}_{lat_str}_{lon_str}.png"
     caminho_local = f"static/imagens/{nome_arquivo}"
 
-    # 🔥 Salva imagem PNG
-    async with httpx.AsyncClient() as client:
-        r = await client.get(imagem_url)
-        with open(caminho_local, "wb") as f:
-            f.write(r.content)
+    # 🔥 Tenta baixar imagem PNG da API
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(imagem_url, timeout=60)
 
-    # 🔥 Salva bounds em JSON separado
+            if r.status_code == 200:
+                with open(caminho_local, "wb") as f:
+                    f.write(r.content)
+                print(f"✅ Imagem salva em {caminho_local}")
+            else:
+                print(f"❌ Erro ao baixar imagem: Status {r.status_code}")
+                return {
+                    "erro": f"Falha ao baixar imagem de sinal. Status {r.status_code}",
+                    "detalhes": data
+                }
+
+    except Exception as e:
+        print(f"❌ Erro crítico no download da imagem: {e}")
+        return {
+            "erro": "Falha ao baixar a imagem da API CloudRF.",
+            "detalhes": str(e),
+            "dados": data
+        }
+
+    # 🔥 Salva bounds
     json_bounds_path = caminho_local.replace(".png", ".json")
     with open(json_bounds_path, "w") as f:
         json.dump({"bounds": bounds}, f)
@@ -465,7 +485,6 @@ async def simular_sinal(antena: dict):
         "status": "Simulação concluída",
         "pivos": pivos_com_status
     }
-
 
 @app.post("/simular_manual")
 async def simular_manual(params: dict):
@@ -551,10 +570,9 @@ async def simular_manual(params: dict):
     print("🚀 Payload enviado (manual):", json.dumps(payload, indent=2))
 
     headers = {"key": API_KEY, "Content-Type": "application/json"}
-    timeout = httpx.Timeout(HTTP_TIMEOUT)
+    timeout = httpx.Timeout(60.0)
 
-    # 🔥 Faz requisição POST para gerar o sinal
-    async with get_http_client() as client:
+    async with httpx.AsyncClient() as client:
         resposta = await client.post(API_URL, headers=headers, json=payload)
 
     if resposta.status_code != 200:
@@ -573,11 +591,29 @@ async def simular_manual(params: dict):
     nome_arquivo = f"repetidora_{tpl['id'].lower()}_{lat_str}_{lon_str}.png"
     caminho_local = f"static/imagens/{nome_arquivo}"
 
-    # 🔥 Faz download da imagem PNG do sinal
-    async with get_http_client() as client:
-        r = await client.get(imagem_url)
-        with open(caminho_local, "wb") as f:
-            f.write(r.content)
+    # 🔥 Tenta baixar imagem PNG da API
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(imagem_url, timeout=60)
+
+            if r.status_code == 200:
+                with open(caminho_local, "wb") as f:
+                    f.write(r.content)
+                print(f"✅ Imagem salva em {caminho_local}")
+            else:
+                print(f"❌ Erro ao baixar imagem: Status {r.status_code}")
+                return {
+                    "erro": f"Falha ao baixar imagem de sinal. Status {r.status_code}",
+                    "detalhes": data
+                }
+
+    except Exception as e:
+        print(f"❌ Erro crítico no download da imagem: {e}")
+        return {
+            "erro": "Falha ao baixar a imagem da API CloudRF.",
+            "detalhes": str(e),
+            "dados": data
+        }
 
     # 🔥 Salva bounds JSON
     json_bounds_path = caminho_local.replace(".png", ".json")
@@ -598,6 +634,7 @@ async def simular_manual(params: dict):
     return {
         "imagem_salva": imagem_local_url,
         "bounds": bounds,
+        "status": "Simulação concluída",
         "pivos": pivos_com_status
     }
 
