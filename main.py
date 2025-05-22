@@ -689,7 +689,7 @@ def exportar_kmz(
             ground.latlonbox.south = bounds[0]
             ground.latlonbox.east = bounds[3]
             ground.latlonbox.west = bounds[1]
-            ground.color = "88ffffff"  # Transparente suave
+            ground.color = "CCffffff"  # Transparente suave
 
         # 🔵 Círculos dos pivôs (FICA EM CIMA DO PNG)
         for ciclo in ciclos:
@@ -734,7 +734,7 @@ def exportar_kmz(
                 overlay.latlonbox.west = b[1]
                 overlay.latlonbox.north = b[2]
                 overlay.latlonbox.east = b[3]
-                overlay.color = "77ffffff"
+                overlay.color = "CCffffff"
 
                 lat_centro = (b[0] + b[2]) / 2
                 lon_centro = (b[1] + b[3]) / 2
@@ -783,3 +783,22 @@ def listar_arquivos_imagens():
         return {"pngs": pngs, "jsons": jsons}
     except Exception as e:
         return {"erro": str(e)}
+
+
+
+
+from fastapi import FastAPI, UploadFile, File
+from traducoes import t
+
+app = FastAPI()
+
+@app.post("/processar_kmz")
+async def processar_kmz(file: UploadFile = File(...), lang: str = "pt"):
+    try:
+        print("📥 Processando KMZ...")
+
+        # 🔥 Sucesso
+        return {"mensagem": t("sucesso", lang)}
+
+    except Exception as e:
+        return {"erro": f"{t('erro_kmz', lang)} {str(e)}"}
