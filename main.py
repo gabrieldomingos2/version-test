@@ -52,12 +52,20 @@ TEMPLATES_DISPONIVEIS = [
         "col": "IRRICONTRO.dBm",
         "site": "Brazil_V6",
         "rxs": -90,
+        "transmitter": {
+            "txw": 0.3,  # Potência em watts
+            "bwi": 0.1   # Largura de banda
+        },
         "receiver": {
             "lat": 0,
             "lon": 0,
             "alt": 3,
             "rxg": 3,
             "rxs": -90
+        },
+        "antenna": {
+            "txg": 3,    # Ganho da antena
+            "fbr": 3     # Front-to-Back Ratio
         }
     },
     {
@@ -67,12 +75,20 @@ TEMPLATES_DISPONIVEIS = [
         "col": "IRRIEUROPE.dBm",
         "site": "V6_XR.dBm",
         "rxs": -105,
+        "transmitter": {
+            "txw": 0.02,
+            "bwi": 0.05
+        },
         "receiver": {
-            "lat": 38.913,
-            "lon": 1.45,
+            "lat": 0,
+            "lon": 0,
             "alt": 3,
             "rxg": 2.1,
             "rxs": -105
+        },
+        "antenna": {
+            "txg": 2.1,
+            "fbr": 2.1
         }
     }
 ]
@@ -344,8 +360,8 @@ async def simular_sinal(antena: dict):
             "lon": antena["lon"],
             "alt": antena["altura"],
             "frq": tpl["frq"],
-            "txw": 0.3,
-            "bwi": 0.1,
+            "txw": tpl["transmitter"]["txw"],
+            "bwi": tpl["transmitter"]["bwi"],
             "powerUnit": "W"
         },
         "receiver": {
@@ -353,8 +369,8 @@ async def simular_sinal(antena: dict):
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
         "antenna": {
-            "mode": "template", "txg": 3, "txl": 0, "ant": 1,
-            "azi": 0, "tlt": 0, "hbw": 360, "vbw": 90, "fbr": 3, "pol": "v"
+            "mode": "template", tpl["antenna"]["txg"], "txl": 0, "ant": 1,
+            "azi": 0, "tlt": 0, "hbw": 360, "vbw": 90, tpl["antenna"]["fbr"], "pol": "v"
         },
         "model": {
             "pm": 1, "pe": 2, "ked": 4, "rel": 95,
@@ -445,8 +461,8 @@ async def simular_manual(params: dict):
             "lon": params["lon"],
             "alt": params.get("altura", 15),
             "frq": tpl["frq"],
-            "txw": 0.3,
-            "bwi": 0.1,
+            "txw": tpl["transmitter"]["txw"],
+            "bwi": tpl["transmitter"]["bwi"],
             "powerUnit": "W"
         },
         "receiver": {
@@ -458,17 +474,18 @@ async def simular_manual(params: dict):
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
         "antenna": {
-            "mode": "template",
-            "txg": 3,
-            "txl": 0,
-            "ant": 1,
-            "azi": 0,
-            "tlt": 0,
-            "hbw": 360,
-            "vbw": 90,
-            "fbr": 3,
-            "pol": "v"
+        "mode": "template",
+        "txg": tpl["antenna"]["txg"],
+        "txl": 0,
+        "ant": 1,
+        "azi": 0,
+        "tlt": 0,
+        "hbw": 360,
+        "vbw": 90,
+        "fbr": tpl["antenna"]["fbr"],
+        "pol": "v"
         },
+
         "model": {
             "pm": 1,
             "pe": 2,
