@@ -50,16 +50,30 @@ TEMPLATES_DISPONIVEIS = [
         "nome": "🇧🇷 Brazil V6",
         "frq": 915,
         "col": "IRRICONTRO.dBm",
-        "site": "Brazil V6",
-        "rxs": -90   # Sensibilidade Brasil
+        "site": "Brazil_V6",
+        "rxs": -90,
+        "receiver": {
+            "lat": 0,
+            "lon": 0,
+            "alt": 3,
+            "rxg": 3,
+            "rxs": -90
+        }
     },
     {
-        "id": "Europe_V6",
-        "nome": "🇪🇺 Europe V6",
+        "id": "Europe_V6_XR",
+        "nome": "🇪🇺 Europe V6 XR",
         "frq": 868,
         "col": "EUROPEIRRI.dBm",
-        "site": "Europe V6",
-        "rxs": -100  # Sensibilidade Europa
+        "site": "V6_XR.dBm",
+        "rxs": -110,
+        "receiver": {
+            "lat": 38.913,
+            "lon": 1.45,
+            "alt": 3,
+            "rxg": 2.1,
+            "rxs": -110
+        }
     }
 ]
 
@@ -335,7 +349,7 @@ async def simular_sinal(antena: dict):
             "powerUnit": "W"
         },
         "receiver": {
-            "lat": antena["lat"], "lon": antena["lon"], "alt": antena.get("altura_receiver", 3), "rxg": 3, "rxs": tpl["rxs"]
+            "lat": tpl["receiver"]["lat"], "lon": tpl["receiver"]["lon"], "alt": tpl["receiver"]["alt"], "rxg": tpl["receiver"]["rxg"], "rxs": tpl["receiver"]["rxs"]
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
         "antenna": {
@@ -436,11 +450,11 @@ async def simular_manual(params: dict):
             "powerUnit": "W"
         },
         "receiver": {
-            "lat": params["lat"],
-            "lon": params["lon"],
-            "alt": params.get("altura_receiver", 3),
-            "rxg": 3,
-            "rxs": tpl["rxs"]
+            "lat": tpl["receiver"]["lat"],
+            "lon": tpl["receiver"]["lon"],
+            "alt": tpl["receiver"]["alt"],
+            "rxg": tpl["receiver"]["rxg"],
+            "rxs": tpl["receiver"]["rxs"]
         },
         "feeder": {"flt": 1, "fll": 0, "fcc": 0},
         "antenna": {
@@ -533,8 +547,6 @@ async def simular_manual(params: dict):
         "bounds": bounds,
         "pivos": pivos_com_status
     }
-
-
 
 @app.post("/reavaliar_pivos")
 async def reavaliar_pivos(data: dict):
