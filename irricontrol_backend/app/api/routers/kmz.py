@@ -5,7 +5,7 @@ import json
 import simplekml
 from datetime import datetime
 import zipfile
-from typing import Optional, List # <--- ADICIONE/MODIFIQUE ESTA LINHA
+from typing import Optional, List
 
 from app.services.kmz_parser import parse_kmz
 from app.models.simulation import ProcessKmzResponse # Importa modelos Pydantic
@@ -14,7 +14,7 @@ router = APIRouter()
 
 # Pasta para arquivos temporários, deve existir na raiz do projeto backend
 ARQUIVOS_DIR = "arquivos"
-STATIC_IMAGENS_DIR = "static/imagens"
+STATIC_IMAGENS_DIR = "app/static/imagens"
 
 
 @router.post("/processar_kmz", response_model=ProcessKmzResponse, tags=["KMZ"])
