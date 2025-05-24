@@ -4,23 +4,25 @@
 
 // --- Constantes ---
 const API_BASE_URL = "https://irricontrol-test.onrender.com";
-const IMG_BASE_URL = `${API_BASE_URL}/static/imagens`; // Para imagens servidas pelo backend
-const ICON_TOWER_URL = `${API_BASE_URL}/icone-torre`; // URL do ícone da torre
+// As URLs abaixo não serão mais usadas para os ícones principais,
+// mas podem ser mantidas se usadas para outros fins.
+const IMG_BASE_URL = `${API_BASE_URL}/static/imagens`;
+const ICON_TOWER_URL = `${API_BASE_URL}/icone-torre`;
 
 // --- Variáveis Globais de Estado da Aplicação ---
 let map;
 let visadaLayerGroup; // Grupo para linhas e marcadores de diagnóstico de visada
 let overlaysVisiveis = []; // Armazena ImageOverlays ativos para controle de opacidade e reavaliação
 let antenaGlobal = null;   // Objeto com dados da antena principal {lat, lon, altura, nome, overlay, label, etc.}
-let pivotsMap = {};        // Objeto para mapear nome_pivo -> L.CircleMarker
-let repetidoras = [];      // Array de objetos de repetidoras {id, marker, overlay, label, altura, altura_receiver}
+let pivotsMap = {};       // Objeto para mapear nome_pivo -> L.CircleMarker
+let repetidoras = [];       // Array de objetos de repetidoras {id, marker, overlay, label, altura, altura_receiver}
 let posicoesEditadas = {}; // { nomePivo: L.latLng } - Armazena posições alteradas no modo de edição
 let backupPosicoesPivos = {}; // { nomePivo: L.latLng } - Backup para desfazer edições
 
 // --- Variáveis Globais de UI e Controle ---
-let marcadorAntena = null;      // L.Marker da antena principal
+let marcadorAntena = null;       // L.Marker da antena principal
 let marcadorPosicionamento = null; // L.Marker temporário para posicionar nova repetidora
-let coordenadaClicada = null;  // L.LatLng do último clique no mapa para repetidora
+let coordenadaClicada = null;   // L.LatLng do último clique no mapa para repetidora
 let templateSelecionado = "";
 let contadorRepetidoras = 0;   // Para gerar IDs únicos para repetidoras
 let idsDisponiveis = [];     // Para reutilizar IDs de repetidoras removidas
@@ -31,7 +33,7 @@ let modoEdicaoPivos = false;
 // Coleções de marcadores para fácil limpeza
 let marcadoresPivos = [];     // Array de L.CircleMarker dos pivôs
 let circulosKMZ = [];         // Array de L.Polygon dos círculos originais do KMZ
-let marcadoresBombas = [];    // Array de L.Marker das bombas
+let marcadoresBombas = [];     // Array de L.Marker das bombas
 let marcadoresLegenda = [];   // Array de L.Marker para todos os rótulos de texto no mapa
 
 // --- Ícones Globais (Leaflet) ---
@@ -41,23 +43,37 @@ let antenaIcon, iconeBomba, iconePosicionamento, repetidoraIcon; // Serão defin
 document.addEventListener("DOMContentLoaded", () => {
     console.log("DOM Carregado. Inicializando Simulador Irricontrol...");
 
-    // Define Ícones após Leaflet estar disponível
+    // ========================================================================
+    // Define Ícones após Leaflet estar disponível - USANDO PASTA LOCAL
+    // ========================================================================
     antenaIcon = L.icon({
-        iconUrl: ICON_TOWER_URL,
-        iconSize: [28, 28], iconAnchor: [14, 28], popupAnchor: [0, -35]
+        iconUrl: 'assets/images/cloudrf.png', // <-- MUDADO para o caminho local
+        iconSize:     [35, 50],             // <-- AJUSTADO para o pino (Largura, Altura)
+        iconAnchor:   [17, 50],             // <-- AJUSTADO para o pino (Metade da Largura, Altura)
+        popupAnchor:  [0, -50]              // <-- AJUSTADO para o pino
     });
+
     iconeBomba = L.icon({
-        iconUrl: `${IMG_BASE_URL}/homegardenbusiness.png`, // Assumindo que esta imagem está no backend
-        iconSize: [28, 28], iconAnchor: [14, 28], popupAnchor: [0, -14]
+        iconUrl: 'assets/images/bomba.png', // <-- MUDADO (adicione bomba.png na pasta!)
+        iconSize:     [32, 32],             // <-- MANTIDO (ou ajuste se tiver um ícone)
+        iconAnchor:   [16, 32],
+        popupAnchor:  [0, -32]
     });
+
     iconePosicionamento = L.icon({
-        iconUrl: ICON_TOWER_URL,
-        iconSize: [28, 28], iconAnchor: [14, 28], className: 'leaflet-marker-icon-transparent'
+        iconUrl: 'assets/images/cloudrf.png', // <-- MUDADO para o caminho local
+        iconSize:     [35, 50],             // <-- AJUSTADO para o pino
+        iconAnchor:   [17, 50],             // <-- AJUSTADO para o pino
+        className: 'leaflet-marker-icon-transparent' // <-- Mantém a transparência se precisar
     });
+
     repetidoraIcon = L.icon({
-        iconUrl: ICON_TOWER_URL,
-        iconSize: [28, 28], iconAnchor: [14, 28], popupAnchor: [0, -30]
+        iconUrl: 'assets/images/cloudrf.png', // <-- MUDADO para o caminho local
+        iconSize:     [35, 50],             // <-- AJUSTADO para o pino
+        iconAnchor:   [17, 50],             // <-- AJUSTADO para o pino
+        popupAnchor:  [0, -50]              // <-- AJUSTADO para o pino
     });
+    // ========================================================================
 
     // 1. Inicializa o mapa
     map = L.map('map', {

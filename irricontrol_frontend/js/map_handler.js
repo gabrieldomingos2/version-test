@@ -291,7 +291,7 @@ function toggleEditMode() {
             marcador.setStyle({ color: 'yellow', fillColor: 'yellow' });
             const editMarker = L.marker(marcador.getLatLng(), {
                 draggable: true,
-                icon: L.divIcon({ className: 'label-pivo', html: `📍`, iconSize: [20, 20], iconAnchor: [10, 10] })
+                icon: L.divIcon({ className: 'label-pivo', html: `🎯`, iconSize: [20, 20], iconAnchor: [10, 10] })
             }).addTo(map);
 
             marcador.editMarker = editMarker; // Guarda referência
