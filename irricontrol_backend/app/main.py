@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 # Importando os routers
-from app.api.routers import core, kmz, simulation
+from api.routers import core, kmz, simulation
 
 # ============================
 # ✅ Instância do FastAPI
