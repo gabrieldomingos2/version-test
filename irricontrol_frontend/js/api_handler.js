@@ -197,14 +197,10 @@ async function reavaliarPivosViaAPI() {
         }
     });
 
-    if (pivosParaReavaliacao.length === 0 && activeOverlaysData.length === 0) {
-        // Se não há pivôs ou overlays ativos, não há o que fazer,
-        // mas talvez seja bom atualizar o status para garantir que todos sejam marcados como fora se não houver overlays.
-        if (pivosParaReavaliacao.length > 0 && activeOverlaysData.length === 0) {
-            updatePivosStatus(pivosParaReavaliacao.map(p => ({...p, fora: true })));
-        }
-        return;
-    }
+    if (activeOverlaysData.length === 0) {
+    updatePivosStatus(pivosParaReavaliacao.map(p => ({ ...p, fora: true })));
+    return;
+}
 
 
     try {

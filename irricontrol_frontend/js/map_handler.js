@@ -13,11 +13,12 @@ function addAntenaMarker(antena) {
     antenaGlobal.label = addLabel(antena.lat, antena.lon, antena.nome || 'Antena', [35, -25]);
 }
 
+// Dentro de js/map_handler.js
 function addPivoMarkers(pivosData) {
     clearPivoMarkers(); // Limpa marcadores e labels de pivôs existentes
     pivosData.forEach(pivo => {
         const cor = pivo.fora ? 'red' : 'green';
-        const pos = posicoesEditadas[pivo.nome] || { lat: pivo.lat, lon: pivo.lon };
+        const pos = posicoesEditadas[pivo.nome] || { lat: pivo.lat, lon: pivo.lon }; // Usa posição editada se houver, senão a original
         const marker = L.circleMarker([pos.lat, pos.lon], {
             radius: 6, color: cor, fillColor: cor, fillOpacity: 0.7,
             className: pivo.fora ? 'circulo-futurista' : ''
@@ -25,6 +26,8 @@ function addPivoMarkers(pivosData) {
 
         marcadoresPivos.push(marker);
         pivotsMap[pivo.nome] = marker;
+        // ADICIONE/CONFIRME ESTE LOG:
+        console.log(`addPivoMarkers: Marcador adicionado/atualizado em pivotsMap com chave: '${pivo.nome}'`, marker); 
         marker.pivoLabel = addLabel(pos.lat, pos.lon, pivo.nome, [30, -15]);
     });
 }
@@ -165,48 +168,35 @@ function resetMap() {
     map.setView([-15, -55], 5);
 }
 
-
+// --- FUNÇÃO MODIFICADA COM LOGS ---
 function updatePivosStatus(pivosData) {
     let foraCount = 0;
-    if (!pivosData || !Array.isArray(pivosData)) {
-        console.error("updatePivosStatus: pivosData inválido", pivosData);
-        return;
-    }
-    console.log("--- Iniciando updatePivosStatus ---");
-    console.log("Dados recebidos:", JSON.parse(JSON.stringify(pivosData))); // Log profundo dos dados
-
     pivosData.forEach(pivo => {
-        console.log(`Processando Pivô: ${pivo.nome}, Status Fora: ${pivo.fora}`);
-        const marcadorDoPivo = pivotsMap[pivo.nome]; // Pega o marcador do mapa global
+        const nomePadrao = pivo.nome.trim().toLowerCase();
+        const marcador = pivotsMap[nomePadrao];
+        const cor = pivo.fora ? 'red' : 'green';
 
-        if (marcadorDoPivo) {
-            const cor = pivo.fora ? 'red' : 'green';
-            const isFora = pivo.fora;
-            if (isFora) foraCount++;
+        if (marcador) {
+            marcador.setStyle({
+                color: cor,
+                fillColor: cor,
+                fillOpacity: 0.7,
+                className: pivo.fora ? 'circulo-futurista' : ''
+            });
 
-            console.log(`  -> Para <span class="math-inline">\{pivo\.nome\}\: Tentando aplicar cor '</span>{cor}'`);
-
-            try {
-                marcadorDoPivo.setStyle({
-                    color: cor,
-                    fillColor: cor,
-                    className: isFora ? 'circulo-futurista' : ''
-                });
-                console.log(`  -> Estilo aplicado com sucesso para ${pivo.nome}.`);
-            } catch (e) {
-                console.error(`  -> ERRO ao aplicar estilo para ${pivo.nome}:`, e);
-            }
-
-            marcadorDoPivo.bindPopup(
-                `<div class="popup-glass">${isFora ? '❌' : '✅'} ${pivo.nome}</div>`
+            marcador.bindPopup(
+                `<div class="popup-glass">${pivo.fora ? '❌' : '✅'} ${pivo.nome}</div>`
             );
+
+            if (pivo.fora) foraCount++;
         } else {
-            console.warn(`  -> ATENÇÃO: Pivô "${pivo.nome}" não encontrado em pivotsMap para atualização de status.`);
+            console.warn(`Pivô "${pivo.nome}" não encontrado em pivotsMap`);
         }
     });
     document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${foraCount}`;
-    console.log("--- Finalizando updatePivosStatus ---");
 }
+
+// --- FIM DA FUNÇÃO MODIFICADA ---
 
 function toggleVisadaVisibility() {
     visadaVisivel = !visadaVisivel;
