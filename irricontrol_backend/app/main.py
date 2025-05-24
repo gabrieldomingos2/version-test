@@ -18,10 +18,9 @@ app = FastAPI(
 # ✅ Configurações de CORS
 # =========================
 allowed_origins = [
-    "https://irricontrol-test.netlify.app",  # Frontend Netlify produção
+    "https://irricontrol-test.netlify.app",
 ]
 
-# Adiciona origens locais se for desenvolvimento
 if os.getenv("FASTAPI_ENV", "production") == "development":
     allowed_origins.extend([
         "http://localhost:3000",
@@ -32,7 +31,7 @@ if os.getenv("FASTAPI_ENV", "production") == "development":
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(set(allowed_origins)),  # Remove duplicatas
+    allow_origins=list(set(allowed_origins)),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,27 +40,19 @@ app.add_middleware(
 # ============================
 # ✅ Diretórios e arquivos
 # ============================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+ARQUIVOS_DIR_MAIN = os.path.join(BASE_DIR, "arquivos")
 
-# 📁 Diretório estático (imagens, ícones, etc.)
-STATIC_DIR = "app/static"
+os.makedirs(os.path.join(STATIC_DIR, "imagens"), exist_ok=True)
+os.makedirs(ARQUIVOS_DIR_MAIN, exist_ok=True)
 
-if not os.path.exists(STATIC_DIR):
-    os.makedirs(os.path.join(STATIC_DIR, "imagens"), exist_ok=True)
-    print(f"✅ Diretório de estáticos criado em: {os.path.abspath(STATIC_DIR)}")
-
-# Montando arquivos estáticos na rota '/static'
+# ✅ Montagem dos arquivos estáticos
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-# 📁 Diretório para arquivos de entrada e saída (KMZ, PNG, etc.)
-ARQUIVOS_DIR_MAIN = "arquivos"
-if not os.path.exists(ARQUIVOS_DIR_MAIN):
-    os.makedirs(ARQUIVOS_DIR_MAIN)
-    print(f"✅ Diretório de arquivos criado em: {os.path.abspath(ARQUIVOS_DIR_MAIN)}")
 
 # ============================
 # ✅ Rotas da API
 # ============================
-
 app.include_router(core.router, prefix="/core", tags=["Core"])
 app.include_router(kmz.router, prefix="/kmz", tags=["KMZ"])
 app.include_router(simulation.router, prefix="/simulation", tags=["Simulation"])
@@ -76,7 +67,6 @@ async def read_root():
 # ============================
 # ✅ Execução direta (opcional)
 # ============================
-# Descomente se quiser rodar direto com 'python main.py'
 # if __name__ == "__main__":
 #     import uvicorn
 #     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
