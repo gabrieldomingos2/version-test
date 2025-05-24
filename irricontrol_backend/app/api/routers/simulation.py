@@ -16,7 +16,7 @@ from app.api.deps import get_http_session
 
 router = APIRouter()
 
-STATIC_IMAGENS_DIR = "app/static/imagens" 
+STATIC_IMAGENS_DIR = "static/imagens" 
 os.makedirs(STATIC_IMAGENS_DIR, exist_ok=True)
 
 def format_coord_for_filename(coord: float) -> str:
