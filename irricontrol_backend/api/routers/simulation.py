@@ -4,15 +4,16 @@ import os
 import json
 from typing import List, Optional
 
-# Garanta que todos os modelos Pydantic necessários estão importados
-from app.core.config import API_URL as CLOUDRF_API_URL, API_KEY as CLOUDRF_API_KEY, obter_template
-from app.models.simulation import (
+# ✅ Corrigido os imports
+from core.config import API_URL as CLOUDRF_API_URL, API_KEY as CLOUDRF_API_KEY, obter_template
+from models.simulation import (
     SimularSinalRequest, SimularManualRequest, ReavaliarPivosRequest, PerfilElevacaoRequest,
     SimulationResponse, PerfilElevacaoResponse, ReavaliarPivosResponse, PivoData,
     OverlayData, BloqueioData
 )
-from app.services.image_analysis import detectar_pivos_fora
-from app.api.deps import get_http_session
+from services.image_analysis import detectar_pivos_fora
+from api.deps import get_http_session
+
 
 router = APIRouter()
 
