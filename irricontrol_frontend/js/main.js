@@ -47,31 +47,31 @@ document.addEventListener("DOMContentLoaded", () => {
     // Define Ícones após Leaflet estar disponível - USANDO PASTA LOCAL
     // ========================================================================
     antenaIcon = L.icon({
-        iconUrl: 'assets/images/cloudrf.png', // <-- MUDADO para o caminho local
-        iconSize:     [35, 50],             // <-- AJUSTADO para o pino (Largura, Altura)
-        iconAnchor:   [17, 50],             // <-- AJUSTADO para o pino (Metade da Largura, Altura)
-        popupAnchor:  [0, -50]              // <-- AJUSTADO para o pino
+        iconUrl: 'assets/images/cloudrf.png',
+        iconSize:     [28, 28],          
+        iconAnchor:   [14, 28],          
+        popupAnchor:  [0, -35]             
     });
 
     iconeBomba = L.icon({
-        iconUrl: 'assets/images/bomba.png', // <-- MUDADO (adicione bomba.png na pasta!)
-        iconSize:     [32, 32],             // <-- MANTIDO (ou ajuste se tiver um ícone)
-        iconAnchor:   [16, 32],
-        popupAnchor:  [0, -32]
+        iconUrl: 'assets/images/homegardenbusiness.png', 
+        iconSize:     [28, 28],             
+        iconAnchor:   [14, 28],
+        popupAnchor:  [0, -14]
     });
 
     iconePosicionamento = L.icon({
-        iconUrl: 'assets/images/cloudrf.png', // <-- MUDADO para o caminho local
-        iconSize:     [35, 50],             // <-- AJUSTADO para o pino
-        iconAnchor:   [17, 50],             // <-- AJUSTADO para o pino
-        className: 'leaflet-marker-icon-transparent' // <-- Mantém a transparência se precisar
+        iconUrl: 'assets/images/cloudrf.png', 
+        iconSize:     [28, 28],            
+        iconAnchor:   [14, 28],            
+        className: 'leaflet-marker-icon-transparent'
     });
 
     repetidoraIcon = L.icon({
-        iconUrl: 'assets/images/cloudrf.png', // <-- MUDADO para o caminho local
-        iconSize:     [35, 50],             // <-- AJUSTADO para o pino
-        iconAnchor:   [17, 50],             // <-- AJUSTADO para o pino
-        popupAnchor:  [0, -50]              // <-- AJUSTADO para o pino
+        iconUrl: 'assets/images/cloudrf.png', 
+        iconSize:     [28, 28],            
+        iconAnchor:   [14, 28],            
+        popupAnchor:  [0, -35]              
     });
     // ========================================================================
 
