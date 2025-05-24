@@ -6,6 +6,7 @@ from shapely.geometry import Polygon
 from math import sqrt
 from typing import List, Tuple, Dict, Any, Optional
 from app.utils.file_helpers import normalizar_nome # Importa do novo local
+import re
 
 # Estruturas de dados para clareza
 AntenaDict = Dict[str, Any]

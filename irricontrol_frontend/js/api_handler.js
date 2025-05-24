@@ -9,10 +9,10 @@ function formatCoordForFilename(coord) { // Renomeado para clareza
 async function processKmzFile(formData) {
   mostrarLoader(true);
   try {
-    const res = await fetch(`${API_BASE_URL}/processar_kmz`, { method: "POST", body: formData });
+    const res = await fetch(`${API_BASE_URL}/kmz/processar_kmz`, { method: "POST", body: formData }); // ✅ CORRIGIDO
     if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ erro: `Erro HTTP ${res.status}` }));
-        throw new Error(errorData.erro || `Erro HTTP ${res.status}`);
+        const errorData = await res.json().catch(() => ({ erro: `Erro HTTP ${res.status} ao processar KMZ` }));
+        throw new Error(errorData.erro || `Erro HTTP ${res.status} ao processar KMZ`);
     }
     const data = await res.json();
     if (data.erro) throw new Error(data.erro);
@@ -28,7 +28,14 @@ async function processKmzFile(formData) {
     addBombaMarkers(data.bombas || []);
     if (data.ciclos) addCirculosKMZ(data.ciclos);
 
-    map.fitBounds(L.latLngBounds(data.pivos.map(p => [p.lat, p.lon])).extend(L.latLng(antenaGlobal.lat, antenaGlobal.lon)));
+    // Garante que antenaGlobal e data.pivos são válidos antes de tentar fitBounds
+    if (antenaGlobal && antenaGlobal.lat != null && antenaGlobal.lon != null && data.pivos && data.pivos.length > 0) {
+        map.fitBounds(L.latLngBounds(data.pivos.map(p => [p.lat, p.lon])).extend(L.latLng(antenaGlobal.lat, antenaGlobal.lon)));
+    } else if (antenaGlobal && antenaGlobal.lat != null && antenaGlobal.lon != null) {
+        map.setView([antenaGlobal.lat, antenaGlobal.lon], 10); // Zoom padrão se não houver pivôs
+    }
+
+
     mostrarMensagem("✅ KMZ carregado com sucesso.", "sucesso");
 
     document.getElementById("simular-btn").classList.remove("hidden");
@@ -66,27 +73,25 @@ async function simulateMainSignal() {
     pivos_atuais: pivosParaSimulacao,
     template: templateSelecionado
   };
-  console.log("Payload para /simular_sinal:", JSON.stringify(payload, null, 2));
+  console.log("Payload para /simulation/simular_sinal:", JSON.stringify(payload, null, 2));
 
 
   try {
-    const res = await fetch(`${API_BASE_URL}/simular_sinal`, {
+    const res = await fetch(`${API_BASE_URL}/simulation/simular_sinal`, { // ✅ CORRIGIDO
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
     });
     if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ erro: `Erro HTTP ${res.status}` }));
-        throw new Error(errorData.erro || `Erro HTTP ${res.status}`);
+        const errorData = await res.json().catch(() => ({ erro: `Erro HTTP ${res.status} na simulação principal` }));
+        throw new Error(errorData.erro || `Erro HTTP ${res.status} na simulação principal`);
     }
     const data = await res.json();
     if (data.erro) throw new Error(data.erro);
 
     if (data.imagem_salva && data.bounds) {
-      clearAllOverlays(); // Limpa overlays antigos (incluindo da antena principal)
+      clearAllOverlays();
       antenaGlobal.overlay = addImageOverlay(data.imagem_salva, data.bounds);
-      // Não adiciona antenaGlobal.overlay a overlaysVisiveis aqui, pois setOverlaysOpacity já o trata.
 
       map.fitBounds(L.latLngBounds([[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]]));
-      // map.zoomOut(1); // Opcional, pode ser muito zoom out
 
       updatePivosStatus(data.pivos);
       atualizarPainelDados(data.pivos, antenaGlobal, antenaGlobal.altura_receiver, data.bombas || []);
@@ -94,7 +99,7 @@ async function simulateMainSignal() {
       document.getElementById("btn-diagnostico").classList.remove("hidden");
       const btnSimular = document.getElementById("simular-btn");
       btnSimular.disabled = true;
-      btnSimular.classList.add("opacity-50"); // Tailwind para opacidade
+      btnSimular.classList.add("opacity-50");
     } else {
       throw new Error("Resposta inválida da API de simulação.");
     }
@@ -122,15 +127,15 @@ async function simulateRepeaterSignal(lat, lon, alturaAntena, alturaReceiver) {
         pivos_atuais: pivosParaSimulacao,
         template: templateSelecionado
     };
-    console.log("Payload para /simular_manual (repetidora):", JSON.stringify(payload, null, 2));
+    console.log("Payload para /simulation/simular_manual (repetidora):", JSON.stringify(payload, null, 2));
 
     try {
-        const res = await fetch(`${API_BASE_URL}/simular_manual`, {
+        const res = await fetch(`${API_BASE_URL}/simulation/simular_manual`, { // ✅ CORRIGIDO
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
         });
         if (!res.ok) {
-            const errorData = await res.json().catch(() => ({ erro: `Erro HTTP ${res.status}` }));
-            throw new Error(errorData.erro || `Erro HTTP ${res.status}`);
+            const errorData = await res.json().catch(() => ({ erro: `Erro HTTP ${res.status} ao simular repetidora` }));
+            throw new Error(errorData.erro || `Erro HTTP ${res.status} ao simular repetidora`);
         }
         const data = await res.json();
         if (data.erro) throw new Error(data.erro);
@@ -145,7 +150,7 @@ async function simulateRepeaterSignal(lat, lon, alturaAntena, alturaReceiver) {
 
             const repetidoraObj = { id, marker, overlay, altura: alturaAntena, altura_receiver: alturaReceiver, label };
             repetidoras.push(repetidoraObj);
-            overlaysVisiveis.push(overlay); // Adiciona apenas overlay da repetidora aqui
+            overlaysVisiveis.push(overlay);
             adicionarRepetidoraNoPainel(repetidoraObj);
 
             if (marcadorPosicionamento && map.hasLayer(marcadorPosicionamento)) {
@@ -167,7 +172,7 @@ async function simulateRepeaterSignal(lat, lon, alturaAntena, alturaReceiver) {
 }
 
 async function reavaliarPivosViaAPI() {
-    if (Object.keys(pivotsMap).length === 0) return; // Não faz nada se não há pivôs
+    if (Object.keys(pivotsMap).length === 0) return;
 
     const pivosParaReavaliacao = Object.entries(pivotsMap).map(([nome, marcador]) => {
         const { lat, lng } = posicoesEditadas[nome] || marcador.getLatLng();
@@ -178,30 +183,38 @@ async function reavaliarPivosViaAPI() {
     if (antenaGlobal?.overlay && map.hasLayer(antenaGlobal.overlay)) {
         const b = antenaGlobal.overlay.getBounds();
         activeOverlaysData.push({
-            imagem: antenaGlobal.overlay._url.split('?')[0], // Remove timestamp
+            imagem: antenaGlobal.overlay._url.split('?')[0],
             bounds: [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]
         });
     }
-    overlaysVisiveis.forEach(overlay => { // overlaysVisiveis agora só tem repetidoras
+    overlaysVisiveis.forEach(overlay => {
         if (map.hasLayer(overlay)) {
             const b = overlay.getBounds();
             activeOverlaysData.push({
-                imagem: overlay._url.split('?')[0], // Remove timestamp
+                imagem: overlay._url.split('?')[0],
                 bounds: [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]
             });
         }
     });
 
-    if (pivosParaReavaliacao.length === 0) return; // Nada para reavaliar
+    if (pivosParaReavaliacao.length === 0 && activeOverlaysData.length === 0) {
+        // Se não há pivôs ou overlays ativos, não há o que fazer,
+        // mas talvez seja bom atualizar o status para garantir que todos sejam marcados como fora se não houver overlays.
+        if (pivosParaReavaliacao.length > 0 && activeOverlaysData.length === 0) {
+            updatePivosStatus(pivosParaReavaliacao.map(p => ({...p, fora: true })));
+        }
+        return;
+    }
+
 
     try {
-        const res = await fetch(`${API_BASE_URL}/reavaliar_pivos`, {
+        const res = await fetch(`${API_BASE_URL}/simulation/reavaliar_pivos`, { // ✅ CORRIGIDO
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ pivos: pivosParaReavaliacao, overlays: activeOverlaysData })
         });
         if (!res.ok) {
-             const errorData = await res.json().catch(() => ({ erro: `Erro HTTP ${res.status}` }));
-            throw new Error(errorData.erro || `Erro HTTP ${res.status}`);
+             const errorData = await res.json().catch(() => ({ erro: `Erro HTTP ${res.status} ao reavaliar pivôs` }));
+            throw new Error(errorData.erro || `Erro HTTP ${res.status} ao reavaliar pivôs`);
         }
         const data = await res.json();
         if (data.erro) throw new Error(data.erro);
@@ -227,12 +240,12 @@ async function fetchElevationProfile(pivoNome, marcadorPivo) {
     };
 
     try {
-        const res = await fetch(`${API_BASE_URL}/perfil_elevacao`, {
+        const res = await fetch(`${API_BASE_URL}/simulation/perfil_elevacao`, { // ✅ CORRIGIDO
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
         });
         if (!res.ok) {
-            const errorData = await res.json().catch(() => ({ erro: `Erro HTTP ${res.status}` }));
-            throw new Error(errorData.erro || `Erro HTTP ${res.status}`);
+            const errorData = await res.json().catch(() => ({ erro: `Erro HTTP ${res.status} ao buscar perfil de elevação` }));
+            throw new Error(errorData.erro || `Erro HTTP ${res.status} ao buscar perfil de elevação`);
         }
         const data = await res.json();
         if (data.erro) throw new Error(data.erro);
@@ -241,7 +254,7 @@ async function fetchElevationProfile(pivoNome, marcadorPivo) {
             [antenaGlobal.lat, antenaGlobal.lon],
             [marcadorPivo.getLatLng().lat, marcadorPivo.getLatLng().lng],
             pivoNome,
-            data.bloqueio // Backend retorna null se não houver bloqueio
+            data.bloqueio
         );
     } catch (error) {
         console.error(`Erro no diagnóstico do pivô ${pivoNome}: ${error.message}`);
@@ -259,7 +272,7 @@ async function runFullDiagnosis() {
 
     const promises = [];
     for (const [nome, marcador] of Object.entries(pivotsMap)) {
-        if (marcador.options.fillColor === 'red') { // Diagnosticar apenas os vermelhos
+        if (marcador.options.fillColor === 'red') {
             promises.push(fetchElevationProfile(nome, marcador));
             pivosDiagnosticados++;
         }
@@ -270,7 +283,7 @@ async function runFullDiagnosis() {
         return mostrarMensagem("✅ Nenhum pivô fora de cobertura para diagnosticar.", "sucesso");
     }
 
-    await Promise.allSettled(promises); // Espera todas as promises, mesmo que algumas falhem
+    await Promise.allSettled(promises);
 
     mostrarLoader(false);
     mostrarMensagem(`🔍 Diagnóstico concluído para ${pivosDiagnosticados} pivôs.`, "sucesso");
@@ -281,7 +294,6 @@ function downloadKmz() {
         return mostrarMensagem("⚠️ Carregue um KMZ e rode o estudo da antena principal primeiro!", "erro");
     }
 
-    // Tenta pegar o nome da imagem e bounds da antena principal se ela tiver sido simulada
     let nomeImagemPrincipal = "";
     let nomeBoundsPrincipal = "";
 
@@ -290,9 +302,6 @@ function downloadKmz() {
         nomeImagemPrincipal = urlParts[urlParts.length - 1];
         nomeBoundsPrincipal = nomeImagemPrincipal.replace(".png", ".json");
     } else {
-        // Fallback se a antena principal não foi simulada ou não tem overlay
-        // (pode acontecer se o usuário tentar exportar antes da simulação completa)
-        // Neste caso, o KMZ não terá o overlay da antena principal.
         mostrarMensagem("⚠️ Imagem da antena principal não encontrada. O KMZ pode não incluir a cobertura principal.", "info");
     }
 
@@ -300,13 +309,13 @@ function downloadKmz() {
     if (nomeImagemPrincipal) params.append("imagem", nomeImagemPrincipal);
     if (nomeBoundsPrincipal) params.append("bounds_file", nomeBoundsPrincipal);
 
-    const url = `${API_BASE_URL}/exportar_kmz?${params.toString()}`;
+    const url = `${API_BASE_URL}/kmz/exportar_kmz?${params.toString()}`; // ✅ CORRIGIDO
     window.open(url, '_blank');
 }
 
 async function fetchTemplates() {
     try {
-        const res = await fetch(`${API_BASE_URL}/templates`);
+        const res = await fetch(`${API_BASE_URL}/core/templates`); // ✅ CORRIGIDO
         if (!res.ok) throw new Error(`Falha ao buscar templates: ${res.status}`);
         const templates = await res.json();
         fillTemplateSelector(templates);
