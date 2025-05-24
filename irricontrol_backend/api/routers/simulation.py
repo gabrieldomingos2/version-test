@@ -3,6 +3,7 @@ import httpx
 import os
 import json
 from typing import List, Optional
+from main import STATIC_DIR
 
 # ✅ Corrigido os imports
 from core.config import API_URL as CLOUDRF_API_URL, API_KEY as CLOUDRF_API_KEY, obter_template
@@ -17,7 +18,7 @@ from api.deps import get_http_session
 
 router = APIRouter()
 
-STATIC_IMAGENS_DIR = "static/imagens" 
+STATIC_IMAGENS_DIR = os.path.join(STATIC_DIR, "imagens")
 os.makedirs(STATIC_IMAGENS_DIR, exist_ok=True)
 
 def format_coord_for_filename(coord: float) -> str:
