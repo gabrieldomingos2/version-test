@@ -24,25 +24,36 @@
 
     <header class="absolute top-0 left-0 right-0 h-14 bg-black border-b-[2px] border-white/15 z-50 flex items-center justify-between px-4">
     <div class="flex items-center">
-        <div class="flex items-center gap-3 mr-6">
-        
-            <button class="hover:scale-110 transition" title="Português (BR)"><img src="https://irricontrol-test.onrender.com/static/imagens/br.svg" class="w-6 h-4"></button>
-            <button class="hover:scale-110 transition" title="Español"><img src="https://irricontrol-test.onrender.com/static/imagens/es.svg" class="w-6 h-4"></button>
-            <button class="hover:scale-110 transition" title="Deutsch"><img src="https://irricontrol-test.onrender.com/static/imagens/de.svg" class="w-6 h-4"></button>
-            <button class="hover:scale-110 transition" title="English"><img src="https://irricontrol-test.onrender.com/static/imagens/uk.svg" class="w-6 h-4"></button>
-            <button class="hover:scale-110 transition" title="Русский"><img src="https://irricontrol-test.onrender.com/static/imagens/ru.svg" class="w-6 h-4"></button>
-        </div>
-
-        
-        <div class="flex items-center gap-2 ml-20" role="toolbar">
-            <button id="toggle-painel" class="glass-button" title="Dados da Simulação">🧾</button>
-            <button id="toggle-repetidoras" class="glass-button" title="Gerenciar Repetidoras">📍</button>
-            <button id="btn-visada" class="glass-button" title="Linhas de Visada">⛰️</button>
-            <button id="toggle-legenda" class="glass-button" title="Legendas dos Pivôs">🏷️</button>
-            <button id="editar-pivos" class="glass-button" title="Editar Posição dos Pivôs">✏️ Edit Pivots</button>
-            <button id="desfazer-edicao" class="glass-button hidden" title="Desfazer Edições">↩️ Undo</button>
-        </div>
+    <!-- Bandeiras -->
+    <div class="flex items-center gap-3 mr-6">
+        <button class="hover:scale-110 transition" title="Português (BR)">
+            <img src="./assets/images/br.svg" class="w-6 h-4" alt="Bandeira Brasil">
+        </button>
+        <button class="hover:scale-110 transition" title="Español">
+            <img src="./assets/images/es.svg" class="w-6 h-4" alt="Bandeira Espanha">
+        </button>
+        <button class="hover:scale-110 transition" title="Deutsch">
+            <img src="./assets/images/de.svg" class="w-6 h-4" alt="Bandeira Alemanha">
+        </button>
+        <button class="hover:scale-110 transition" title="English">
+            <img src="./assets/images/uk.svg" class="w-6 h-4" alt="Bandeira Reino Unido">
+        </button>
+        <button class="hover:scale-110 transition" title="Русский">
+            <img src="./assets/images/ru.svg" class="w-6 h-4" alt="Bandeira Rússia">
+        </button>
     </div>
+
+    <!-- Botões de ferramentas -->
+<div class="flex items-center gap-2 ml-24" role="toolbar">
+    <span class="text-white/80 text-lg mr-2">Ferramentas</span>
+    <button id="toggle-painel" class="glass-button" title="Dados da Simulação">🧾</button>
+    <button id="toggle-repetidoras" class="glass-button" title="Gerenciar Repetidoras">📍</button>
+    <button id="btn-visada" class="glass-button" title="Linhas de Visada">⛰️</button>
+    <button id="toggle-legenda" class="glass-button" title="Legendas dos Pivôs">🏷️</button>
+    <button id="editar-pivos" class="glass-button" title="Editar Posição dos Pivôs">✏️ Edit Pivots</button>
+    <button id="desfazer-edicao" class="glass-button hidden" title="Desfazer Edições">↩️ Undo</button>
+</div>
+
 </header>
 
 
