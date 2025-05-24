@@ -23,15 +23,28 @@
     </noscript>
 
     <header class="absolute top-0 left-0 right-0 h-14 bg-black border-b-[2px] border-white/15 z-50 flex items-center justify-between px-4">
-        <div class="flex items-center gap-3">
-            <button class="hover:scale-110 transition" title="Português (BR)" aria-label="Mudar idioma para Português (Brasil)"><img src="https://irricontrol-test.onrender.com/static/imagens/br.svg" class="w-6 h-4" alt="Bandeira do Brasil"></button>
-            <button class="hover:scale-110 transition" title="Español" aria-label="Mudar idioma para Espanhol"><img src="https://irricontrol-test.onrender.com/static/imagens/es.svg" class="w-6 h-4" alt="Bandeira da Espanha"></button>
-            <button class="hover:scale-110 transition" title="Deutsch" aria-label="Mudar idioma para Alemão"><img src="https://irricontrol-test.onrender.com/static/imagens/de.svg" class="w-6 h-4" alt="Bandeira da Alemanha"></button>
-            <button class="hover:scale-110 transition" title="English" aria-label="Mudar idioma para Inglês"><img src="https://irricontrol-test.onrender.com/static/imagens/uk.svg" class="w-6 h-4" alt="Bandeira do Reino Unido"></button>
-            <button class="hover:scale-110 transition" title="Русский" aria-label="Mudar idioma para Russo"><img src="https://irricontrol-test.onrender.com/static/imagens/ru.svg" class="w-6 h-4" alt="Bandeira da Rússia"></button>
+    <div class="flex items-center">
+        <div class="flex items-center gap-3 mr-6">
+        
+            <button class="hover:scale-110 transition" title="Português (BR)"><img src="https://irricontrol-test.onrender.com/static/imagens/br.svg" class="w-6 h-4"></button>
+            <button class="hover:scale-110 transition" title="Español"><img src="https://irricontrol-test.onrender.com/static/imagens/es.svg" class="w-6 h-4"></button>
+            <button class="hover:scale-110 transition" title="Deutsch"><img src="https://irricontrol-test.onrender.com/static/imagens/de.svg" class="w-6 h-4"></button>
+            <button class="hover:scale-110 transition" title="English"><img src="https://irricontrol-test.onrender.com/static/imagens/uk.svg" class="w-6 h-4"></button>
+            <button class="hover:scale-110 transition" title="Русский"><img src="https://irricontrol-test.onrender.com/static/imagens/ru.svg" class="w-6 h-4"></button>
         </div>
-        <span class="text-white/80 font-bold text-lg">Simulador de Sinal Irricontrol</span>
-        <div></div></header>
+
+        
+        <div class="flex items-center gap-2 ml-20" role="toolbar">
+            <button id="toggle-painel" class="glass-button" title="Dados da Simulação">🧾</button>
+            <button id="toggle-repetidoras" class="glass-button" title="Gerenciar Repetidoras">📍</button>
+            <button id="btn-visada" class="glass-button" title="Linhas de Visada">⛰️</button>
+            <button id="toggle-legenda" class="glass-button" title="Legendas dos Pivôs">🏷️</button>
+            <button id="editar-pivos" class="glass-button" title="Editar Posição dos Pivôs">✏️ Edit Pivots</button>
+            <button id="desfazer-edicao" class="glass-button hidden" title="Desfazer Edições">↩️ Undo</button>
+        </div>
+    </div>
+</header>
+
 
     <aside class="absolute top-14 bottom-14 left-0 w-[280px] bg-black z-40 p-4 flex flex-col gap-4">
         <section aria-labelledby="template-heading">
@@ -94,17 +107,6 @@
     <main class="absolute top-14 bottom-14 left-[280px] right-14 z-10">
         <div id="map" class="w-full h-full bg-neutral-900"></div>
 
-        <div class="absolute top-2 left-4 z-[999] flex items-center gap-3" role="toolbar" aria-label="Controles de visualização do mapa">
-            <span class="text-white text-sm font-semibold sr-only">Configurações de Visualização</span>
-            <button id="toggle-painel" class="glass-button" title="Mostrar/Ocultar Dados da Simulação" aria-label="Mostrar ou Ocultar Painel de Dados da Simulação">🧾</button>
-            <button id="toggle-repetidoras" class="glass-button" title="Gerenciar Repetidoras" aria-label="Mostrar ou Ocultar Painel de Repetidoras">📍</button>
-            <button id="btn-visada" class="glass-button" title="Mostrar/Ocultar Linhas de Visada" aria-label="Mostrar ou Ocultar Linhas de Visada">⛰️</button>
-            <button id="toggle-legenda" class="glass-button" title="Mostrar/Ocultar Legendas dos Pivôs" aria-label="Mostrar ou Ocultar Legendas dos Pivôs">🏷️</button>
-            <button id="toggle-opacidade" class="glass-button" title="Controlar Opacidade das Camadas" aria-label="Mostrar ou Ocultar Painel de Opacidade">🌫️</button>
-            <button id="editar-pivos" class="glass-button" title="Editar Posição dos Pivôs" aria-label="Entrar ou Sair do Modo de Edição de Pivôs">✏️ Edit Pivots</button>
-            <button id="desfazer-edicao" class="glass-button hidden" title="Desfazer Edições" aria-label="Desfazer alterações nas posições dos pivôs">↩️ Undo</button>
-        </div>
-
         <div id="painel-container" class="absolute right-4 top-2 z-[998] w-64 space-y-2">
             <section id="painel-dados" class="bg-black/70 border border-white/15 backdrop-blur-md rounded-xl shadow-xl p-4 hidden" aria-hidden="true" aria-labelledby="dados-heading">
                 <h2 id="dados-heading" class="text-sm font-semibold text-white/80 mb-3">📊 Dados da Simulação</h2>
@@ -122,19 +124,23 @@
                 <div id="lista-repetidoras" class="space-y-2 text-sm max-h-40 overflow-y-auto"></div>
             </section>
 
-            <section id="painel-opacidade" class="bg-black/70 border border-white/15 backdrop-blur-md rounded-xl shadow-xl p-4 hidden" aria-hidden="true" aria-labelledby="opacidade-heading">
-                <h2 id="opacidade-heading" class="text-sm font-semibold text-white/80 mb-3">🌫️ Opacidade</h2>
-                <label for="range-opacidade" class="sr-only">Controle de Opacidade</label>
-                <input id="range-opacidade" type="range" min="0" max="1" step="0.1" value="1" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
-            </section>
         </div>
     </main>
 
     <aside class="absolute top-14 bottom-14 right-0 w-14 bg-black z-40" aria-hidden="true"></aside>
 
-    <footer class="absolute bottom-0 left-0 right-0 h-14 bg-black z-50 flex items-center justify-center">
+    <footer class="absolute bottom-0 left-0 right-0 h-14 bg-black z-50 flex items-center justify-between px-4">
+    <div class="flex items-center gap-2 ml-[270px]">
+        <label for="range-opacidade" class="text-xs text-gray-400 whitespace-nowrap">Opacidade:</label>
+        <input id="range-opacidade" type="range" min="0" max="1" step="0.05" value="1"
+            class="w-[100px] h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-sky-500" />
+    </div>
+    <div class="flex-1 text-center">
         <span class="text-gray-500 text-xs">Powered by Irricontrol</span>
+    </div>
+    <div class="w-[180px]"></div>
     </footer>
+
 
     <div id="mensagem" class="fixed bottom-16 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg text-center font-semibold z-[10001] shadow-lg hidden" role="status" aria-live="polite"></div>
     <div id="loader" class="hidden fixed inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center z-[10002]" aria-hidden="true" role="alert" aria-live="assertive">

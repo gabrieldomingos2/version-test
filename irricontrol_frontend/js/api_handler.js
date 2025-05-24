@@ -322,6 +322,6 @@ async function fetchTemplates() {
     } catch (err) {
         console.error("⚠️ Erro ao carregar templates:", err);
         mostrarMensagem("⚠️ Erro ao carregar templates. Usando valores padrão.", "erro");
-        fillTemplateSelector(["Brazil_V6", "Europe_V6_XR"]); // Fallback
+        fillTemplateSelector(["Brazil V6", "Europe V6"]); // Fallback
     }
 }

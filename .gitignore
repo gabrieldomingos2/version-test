@@ -1,0 +1,42 @@
+# Ignorar ambientes virtuais
+venv/
+venv_backend/
+.venv/
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Arquivos temporários
+*.log
+*.sqlite3
+*.db
+*.DS_Store
+*.env
+.env.*
+
+# Arquivos de pacotes Python
+*.egg-info/
+dist/
+build/
+
+# Arquivos do sistema e IDE
+.vscode/
+.idea/
+*.swp
+
+# Arquivos do sistema operacional
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Static gerado ou temporário
+static/imagens/*.png
+static/imagens/*.kmz
+arquivos/*.kmz
+arquivos/*.kml
+arquivos/*.zip
+
+# Node (se tiver futuramente)
+node_modules/

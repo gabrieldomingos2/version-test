@@ -44,7 +44,7 @@ function addCirculosKMZ(circulosData) {
     clearCirculosKMZ();
     circulosKMZ = circulosData.map(circulo =>
         L.polygon(circulo.coordenadas, {
-            color: '#ffff00', weight: 1, opacity: 0.6, fillOpacity: 0,
+            color: '#FF0000', weight: 4, opacity: 0.95, fillOpacity: 0,
         }).addTo(map)
     );
 }
@@ -291,7 +291,7 @@ function toggleEditMode() {
             marcador.setStyle({ color: 'yellow', fillColor: 'yellow' });
             const editMarker = L.marker(marcador.getLatLng(), {
                 draggable: true,
-                icon: L.divIcon({ className: 'label-pivo', html: `🎯`, iconSize: [20, 20], iconAnchor: [10, 10] })
+                icon: L.divIcon({ className: 'label-pivo', html: `📍`, iconSize: [20, 20], iconAnchor: [10, 10] })
             }).addTo(map);
 
             marcador.editMarker = editMarker; // Guarda referência
