@@ -5,7 +5,7 @@ from statistics import mean
 from shapely.geometry import Polygon
 from math import sqrt
 from typing import List, Tuple, Dict, Any, Optional
-from app.utils.file_helpers import normalizar_nome
+from utils.file_helpers import normalizar_nome
 import re
 
 
