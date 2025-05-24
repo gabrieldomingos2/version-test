@@ -7,14 +7,14 @@ from datetime import datetime
 import zipfile
 from typing import Optional, List
 
-from app.services.kmz_parser import parse_kmz
-from app.models.simulation import ProcessKmzResponse # Importa modelos Pydantic
+from services.kmz_parser import parse_kmz
+from models.simulation import ProcessKmzResponse # Importa modelos Pydantic
 
 router = APIRouter()
 
 # Pasta para arquivos temporários, deve existir na raiz do projeto backend
+STATIC_IMAGENS_DIR = "static/imagens"
 ARQUIVOS_DIR = "arquivos"
-STATIC_IMAGENS_DIR = "app/static/imagens"
 
 
 @router.post("/processar_kmz", response_model=ProcessKmzResponse, tags=["KMZ"])

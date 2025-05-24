@@ -1,6 +1,6 @@
 from typing import List
 from fastapi import APIRouter
-from app.core.config import TEMPLATES_DISPONIVEIS
+from core.config import TEMPLATES_DISPONIVEIS
 
 router = APIRouter()
 
