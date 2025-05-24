@@ -165,32 +165,47 @@ function resetMap() {
     map.setView([-15, -55], 5);
 }
 
+
 function updatePivosStatus(pivosData) {
     let foraCount = 0;
     if (!pivosData || !Array.isArray(pivosData)) {
         console.error("updatePivosStatus: pivosData inválido", pivosData);
         return;
     }
+    console.log("--- Iniciando updatePivosStatus ---");
+    console.log("Dados recebidos:", JSON.parse(JSON.stringify(pivosData))); // Log profundo dos dados
 
     pivosData.forEach(pivo => {
-        if (pivotsMap[pivo.nome]) {
+        console.log(`Processando Pivô: ${pivo.nome}, Status Fora: ${pivo.fora}`);
+        const marcadorDoPivo = pivotsMap[pivo.nome]; // Pega o marcador do mapa global
+
+        if (marcadorDoPivo) {
             const cor = pivo.fora ? 'red' : 'green';
             const isFora = pivo.fora;
             if (isFora) foraCount++;
 
-            pivotsMap[pivo.nome].setStyle({
-                color: cor,
-                fillColor: cor, // Garante que a cor de preenchimento também mude
-                className: isFora ? 'circulo-futurista' : ''
-            });
-            pivotsMap[pivo.nome].bindPopup(
+            console.log(`  -> Para <span class="math-inline">\{pivo\.nome\}\: Tentando aplicar cor '</span>{cor}'`);
+
+            try {
+                marcadorDoPivo.setStyle({
+                    color: cor,
+                    fillColor: cor,
+                    className: isFora ? 'circulo-futurista' : ''
+                });
+                console.log(`  -> Estilo aplicado com sucesso para ${pivo.nome}.`);
+            } catch (e) {
+                console.error(`  -> ERRO ao aplicar estilo para ${pivo.nome}:`, e);
+            }
+
+            marcadorDoPivo.bindPopup(
                 `<div class="popup-glass">${isFora ? '❌' : '✅'} ${pivo.nome}</div>`
             );
         } else {
-            console.warn(`Pivô "${pivo.nome}" não encontrado em pivotsMap para atualização de status.`);
+            console.warn(`  -> ATENÇÃO: Pivô "${pivo.nome}" não encontrado em pivotsMap para atualização de status.`);
         }
     });
     document.getElementById("fora-cobertura").textContent = `Fora da cobertura: ${foraCount}`;
+    console.log("--- Finalizando updatePivosStatus ---");
 }
 
 function toggleVisadaVisibility() {
