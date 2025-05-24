@@ -1,0 +1,43 @@
+# irricontrol_backend/.gitignore
+
+# Arquivo de variáveis de ambiente locais
+.env
+
+# Bytecode Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ambientes virtuais (ajuste o nome se usar outro)
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Arquivos temporários gerados pelo KMZ Parser ou simulações
+# (se você não quiser versioná-los e eles são sempre recriados)
+arquivos/entrada.kmz
+arquivos/temp_kml_extract/
+arquivos/*.kml
+arquivos/EstudoIrricontrol_*.kmz # KMZs exportados
+
+# Imagens e JSONs de bounds gerados pela simulação.
+# Se você os limpa antes de cada simulação, geralmente não são versionados.
+# Se o endpoint de exportação KMZ depende que eles existam de execuções anteriores
+# (e seu servidor é stateless), você pode precisar reconsiderar.
+# Pela lógica atual do seu backend que os recria, é seguro ignorá-los.
+static/imagens/sinal_*.png
+static/imagens/sinal_*.json
+static/imagens/repetidora_*.png
+static/imagens/repetidora_*.json
+static/contorno_fazenda.json # Se gerado e não fixo
+
+# Arquivos de IDE
+.vscode/
+.idea/
+
+# Arquivos de Sistema Operacional
+.DS_Store
+Thumbs.db

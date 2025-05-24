@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <title>Simulador de Sinal - Irricontrol</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body class="bg-black h-screen w-screen overflow-hidden text-white">
+
+    <noscript>
+        <div class="fixed inset-0 bg-red-800 text-white text-center p-10 z-[10000]">
+            <h1>JavaScript Desativado</h1>
+            <p>Esta aplicação requer JavaScript para funcionar corretamente. Por favor, habilite-o em seu navegador.</p>
+        </div>
+    </noscript>
+
+    <header class="absolute top-0 left-0 right-0 h-14 bg-black border-b-[2px] border-white/15 z-50 flex items-center justify-between px-4">
+        <div class="flex items-center gap-3">
+            <button class="hover:scale-110 transition" title="Português (BR)" aria-label="Mudar idioma para Português (Brasil)"><img src="https://irricontrol-test.onrender.com/static/imagens/br.svg" class="w-6 h-4" alt="Bandeira do Brasil"></button>
+            <button class="hover:scale-110 transition" title="Español" aria-label="Mudar idioma para Espanhol"><img src="https://irricontrol-test.onrender.com/static/imagens/es.svg" class="w-6 h-4" alt="Bandeira da Espanha"></button>
+            <button class="hover:scale-110 transition" title="Deutsch" aria-label="Mudar idioma para Alemão"><img src="https://irricontrol-test.onrender.com/static/imagens/de.svg" class="w-6 h-4" alt="Bandeira da Alemanha"></button>
+            <button class="hover:scale-110 transition" title="English" aria-label="Mudar idioma para Inglês"><img src="https://irricontrol-test.onrender.com/static/imagens/uk.svg" class="w-6 h-4" alt="Bandeira do Reino Unido"></button>
+            <button class="hover:scale-110 transition" title="Русский" aria-label="Mudar idioma para Russo"><img src="https://irricontrol-test.onrender.com/static/imagens/ru.svg" class="w-6 h-4" alt="Bandeira da Rússia"></button>
+        </div>
+        <span class="text-white/80 font-bold text-lg">Simulador de Sinal Irricontrol</span>
+        <div></div></header>
+
+    <aside class="absolute top-14 bottom-14 left-0 w-[280px] bg-black z-40 p-4 flex flex-col gap-4">
+        <section aria-labelledby="template-heading">
+            <div class="backdrop-blur bg-white/5 border border-white/15 px-3 py-3 rounded-lg shadow-sm flex items-center gap-2">
+                <label for="template-modelo" id="template-heading" class="text-sm text-white/70 whitespace-nowrap">🌐 Template:</label>
+                <select id="template-modelo" class="w-full px-2 py-1 rounded-lg bg-black/70 border border-white/15 text-white/80 text-sm focus:outline-none focus:ring-1 focus:ring-white/30 transition" aria-labelledby="template-heading">
+                    {/* Options loaded by JS */}
+                </select>
+            </div>
+        </section>
+
+        <nav class="flex flex-col gap-3" aria-label="Controles principais da simulação">
+            <form id="formulario" enctype="multipart/form-data" class="flex flex-col gap-3">
+                <label for="arquivo" class="w-full h-10 cursor-pointer flex items-center justify-center gap-2 border border-white/15 rounded-lg backdrop-blur bg-white/5 hover:bg-white/10 text-white/70 hover:text-white shadow-sm hover:shadow-[0_0_8px_rgba(255,255,255,0.3)] transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#3B82F6" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4-4m0 0l4 4m-4-4v12"/></svg>
+                    <span id="nome-arquivo" class="text-sm font-medium">Escolher Arquivo</span>
+                </label>
+                <input type="file" id="arquivo" accept=".kmz" required class="hidden" />
+                <button type="submit" class="w-full h-10 flex items-center justify-center gap-2 border border-white/15 rounded-lg backdrop-blur bg-white/5 hover:bg-white/10 text-white/70 hover:text-white shadow-sm hover:shadow-[0_0_8px_rgba(255,255,255,0.3)] transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#3B82F6" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v4H4V4zm0 6h16v4H4v-4zm0 6h16v4H4v-4z"/></svg>
+                    <span class="text-sm font-medium">Carregar KMZ</span>
+                </button>
+            </form>
+            <button id="simular-btn" class="w-full h-10 flex items-center justify-center gap-2 border border-white/15 rounded-lg backdrop-blur bg-white/5 hover:bg-white/10 text-white/70 hover:text-white shadow-sm hover:shadow-[0_0_8px_rgba(255,255,255,0.3)] transition hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#3B82F6" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4-4m0 0l4 4m-4-4v12"/></svg>
+                <span class="text-sm font-medium">Rodar Estudo de Sinal</span>
+            </button>
+            <button id="btn-diagnostico" class="w-full h-10 flex items-center justify-center gap-2 border border-white/15 rounded-lg backdrop-blur bg-white/5 hover:bg-white/10 text-white/70 hover:text-white shadow-sm hover:shadow-[0_0_8px_rgba(255,255,255,0.3)] transition hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#3B82F6" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6h6v6h5v2H4v-2h5z"/></svg>
+                <span class="text-sm font-medium">Diagnóstico de Visada</span>
+            </button>
+            <button id="exportar-btn" class="w-full h-10 flex items-center justify-center gap-2 border border-white/15 rounded-lg backdrop-blur bg-white/5 hover:bg-white/10 text-white/70 hover:text-white shadow-sm hover:shadow-[0_0_8px_rgba(255,255,255,0.3)] transition">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#3B82F6" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                <span class="text-sm font-medium">Exportar KMZ</span>
+            </button>
+            <button id="resetar-btn" class="w-full h-10 flex items-center justify-center gap-2 border border-white/15 rounded-lg backdrop-blur bg-white/5 hover:bg-white/10 text-white/70 hover:text-white shadow-sm hover:shadow-[0_0_8px_rgba(255,255,255,0.3)] transition">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#3B82F6" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582a9 9 0 0115.249 5.93M20 20v-5h-.581a9 9 0 00-15.249-5.93"/></svg>
+                <span class="text-sm font-medium">Resetar</span>
+            </button>
+        </nav>
+
+        <section id="painel-repetidora" class="bg-white/5 border border-white/15 backdrop-blur-md rounded-xl shadow-lg w-full p-4 hidden" aria-labelledby="repetidora-heading">
+            <div class="flex justify-between items-center mb-3">
+                <h2 id="repetidora-heading" class="font-semibold text-sm text-white/80">➕ Configurar Repetidora</h2>
+                <button id="fechar-painel-rep" class="text-red-400 hover:text-red-500 font-bold text-lg" aria-label="Fechar painel de configuração da repetidora">✖</button>
+            </div>
+            <label for="altura-antena-rep" class="text-xs text-white/60 mb-1 block">Altura da Antena (m)</label>
+            <input id="altura-antena-rep" type="number" value="5" class="w-full h-9 px-3 rounded-lg border border-white/20 bg-black/40 text-white text-sm focus:outline-none focus:ring-1 focus:ring-white/30 transition mb-3" />
+            <label for="altura-receiver-rep" class="text-xs text-white/60 mb-1 block">Altura do Receiver (m)</label>
+            <input id="altura-receiver-rep" type="number" value="3" class="w-full h-9 px-3 rounded-lg border border-white/20 bg-black/40 text-white text-sm focus:outline-none focus:ring-1 focus:ring-white/30 transition mb-4" />
+            <div class="p-[2px] rounded-lg bg-gradient-to-br from-white/10 to-white/5">
+                <button id="confirmar-repetidora" class="w-full h-10 flex items-center justify-center gap-2 border border-white/15 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white shadow-sm hover:shadow-[0_0_8px_rgba(255,255,255,0.3)] transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#3B82F6" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4-4m0 0l4 4m-4-4v12"/></svg>
+                    <span class="text-sm font-medium">📡 Simular</span>
+                </button>
+            </div>
+        </section>
+    </aside>
+
+    <main class="absolute top-14 bottom-14 left-[280px] right-14 z-10">
+        <div id="map" class="w-full h-full bg-neutral-900"></div>
+
+        <div class="absolute top-2 left-4 z-[999] flex items-center gap-3" role="toolbar" aria-label="Controles de visualização do mapa">
+            <span class="text-white text-sm font-semibold sr-only">Configurações de Visualização</span>
+            <button id="toggle-painel" class="glass-button" title="Mostrar/Ocultar Dados da Simulação" aria-label="Mostrar ou Ocultar Painel de Dados da Simulação">🧾</button>
+            <button id="toggle-repetidoras" class="glass-button" title="Gerenciar Repetidoras" aria-label="Mostrar ou Ocultar Painel de Repetidoras">📍</button>
+            <button id="btn-visada" class="glass-button" title="Mostrar/Ocultar Linhas de Visada" aria-label="Mostrar ou Ocultar Linhas de Visada">⛰️</button>
+            <button id="toggle-legenda" class="glass-button" title="Mostrar/Ocultar Legendas dos Pivôs" aria-label="Mostrar ou Ocultar Legendas dos Pivôs">🏷️</button>
+            <button id="toggle-opacidade" class="glass-button" title="Controlar Opacidade das Camadas" aria-label="Mostrar ou Ocultar Painel de Opacidade">🌫️</button>
+            <button id="editar-pivos" class="glass-button" title="Editar Posição dos Pivôs" aria-label="Entrar ou Sair do Modo de Edição de Pivôs">✏️ Edit Pivots</button>
+            <button id="desfazer-edicao" class="glass-button hidden" title="Desfazer Edições" aria-label="Desfazer alterações nas posições dos pivôs">↩️ Undo</button>
+        </div>
+
+        <div id="painel-container" class="absolute right-4 top-2 z-[998] w-64 space-y-2">
+            <section id="painel-dados" class="bg-black/70 border border-white/15 backdrop-blur-md rounded-xl shadow-xl p-4 hidden" aria-hidden="true" aria-labelledby="dados-heading">
+                <h2 id="dados-heading" class="text-sm font-semibold text-white/80 mb-3">📊 Dados da Simulação</h2>
+                <p id="template-info" class="font-medium text-sm text-green-300 block mb-3">🌐 Template: --</p>
+                <p id="total-pivos" class="text-sm text-white/70 mb-1">Pivôs: --</p>
+                <p id="fora-cobertura" class="text-sm text-white/70 mb-1">Fora da cobertura: --</p>
+                <p id="altura-antena-info" class="text-sm text-white/70 mb-1">Antena principal: -- m</p>
+                <p id="altura-receiver-info" class="text-sm text-white/70 mb-1">Receiver: -- m</p>
+                <p id="total-repetidoras" class="text-sm text-white/70 mb-1">Total Repetidoras: --</p>
+                <p id="total-bombas" class="text-sm text-white/70 mb-1 hidden">Casas de bomba: --</p>
+            </section>
+
+            <section id="painel-repetidoras" class="bg-black/70 border border-white/15 backdrop-blur-md rounded-xl shadow-xl p-4 hidden" aria-hidden="true" aria-labelledby="repetidoras-heading">
+                <h2 id="repetidoras-heading" class="text-sm font-semibold text-white/80 mb-3">📍 Repetidoras</h2>
+                <div id="lista-repetidoras" class="space-y-2 text-sm max-h-40 overflow-y-auto"></div>
+            </section>
+
+            <section id="painel-opacidade" class="bg-black/70 border border-white/15 backdrop-blur-md rounded-xl shadow-xl p-4 hidden" aria-hidden="true" aria-labelledby="opacidade-heading">
+                <h2 id="opacidade-heading" class="text-sm font-semibold text-white/80 mb-3">🌫️ Opacidade</h2>
+                <label for="range-opacidade" class="sr-only">Controle de Opacidade</label>
+                <input id="range-opacidade" type="range" min="0" max="1" step="0.1" value="1" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+            </section>
+        </div>
+    </main>
+
+    <aside class="absolute top-14 bottom-14 right-0 w-14 bg-black z-40" aria-hidden="true"></aside>
+
+    <footer class="absolute bottom-0 left-0 right-0 h-14 bg-black z-50 flex items-center justify-center">
+        <span class="text-gray-500 text-xs">Powered by Irricontrol</span>
+    </footer>
+
+    <div id="mensagem" class="fixed bottom-16 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg text-center font-semibold z-[10001] shadow-lg hidden" role="status" aria-live="polite"></div>
+    <div id="loader" class="hidden fixed inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center z-[10002]" aria-hidden="true" role="alert" aria-live="assertive">
+        <svg class="animate-spin h-12 w-12 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+        <span class="mt-4 text-lg font-bold text-green-300">Processando...</span>
+    </div>
+
+    <script src="js/main.js" defer></script>
+    <script src="js/ui_handler.js" defer></script>
+    <script src="js/map_handler.js" defer></script>
+    <script src="js/api_handler.js" defer></script>
+    <script src="js/event_listeners.js" defer></script>
+
+</body>
+</html>
