@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter
 from core.config import TEMPLATES_DISPONIVEIS
+from core.paths import STATIC_IMAGENS_DIR, ARQUIVOS_DIR  # ✅ CERTO
 
 router = APIRouter()
 

@@ -1,15 +1,15 @@
 import os
 
-APP_DIR = os.path.dirname(os.path.abspath(__file__))  # Pasta core
-PROJECT_ROOT = os.path.dirname(APP_DIR)               # Pasta raiz (onde está main.py)
+# Diretório raiz do projeto
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-STATIC_DIR = os.path.join(PROJECT_ROOT, "static")
-ARQUIVOS_DIR = os.path.join(PROJECT_ROOT, "arquivos")
+# Diretório de arquivos estáticos (imagens)
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+STATIC_IMAGENS_DIR = os.path.join(STATIC_DIR, "imagens")
 
-# Cria pastas se não existirem
-os.makedirs(os.path.join(STATIC_DIR, "imagens"), exist_ok=True)
+# Diretório de arquivos temporários
+ARQUIVOS_DIR = os.path.join(BASE_DIR, "arquivos")
+
+# Garante que as pastas existem
+os.makedirs(STATIC_IMAGENS_DIR, exist_ok=True)
 os.makedirs(ARQUIVOS_DIR, exist_ok=True)
-
-# Debug opcional
-print(f"🗂️ STATIC_DIR → {STATIC_DIR}")
-print(f"🗂️ ARQUIVOS_DIR → {ARQUIVOS_DIR}")
